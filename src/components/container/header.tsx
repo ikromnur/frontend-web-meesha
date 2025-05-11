@@ -82,8 +82,6 @@ const DefaultHeader = () => {
   const user = session?.user;
   const router = useRouter();
 
-  console.log(user);
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 11) return "Good Morning!";

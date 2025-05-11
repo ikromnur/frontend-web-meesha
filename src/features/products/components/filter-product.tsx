@@ -1,8 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useFormContext } from "react-hook-form";
 import {
   Form,
   FormField,
@@ -15,92 +13,78 @@ import { useUpdateSearchParams } from "@/hooks/use-search-params";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UseFetchFilter } from "../api/use-fetch-filter";
+import { useToast } from "@/hooks/use-toast";
+import { FilterSchema } from "../form/filter";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-const filters = {
-  category: [
-    { id: "bouquet", label: "Bouquet" },
-    { id: "simple-bouquet", label: "Simple Bouquet" },
-    { id: "cake-flower", label: "Cake Flower" },
-    { id: "cup-flower", label: "Cup Flower" },
-  ],
-  type: [
-    { id: "fresh-flower", label: "Fresh Flower" },
-    { id: "artificial-flower", label: "Artificial Flower" },
-  ],
-  style: [
-    { id: "classic", label: "Classic" },
-    { id: "luxury", label: "Luxury" },
-    { id: "modern", label: "Modern" },
-    { id: "pastel", label: "Pastel" },
-  ],
-  untuk: [
-    { id: "anniversary", label: "Anniversary" },
-    { id: "wedding", label: "Wedding" },
-    { id: "graduation", label: "Graduation" },
-    { id: "pacar", label: "Pacar" },
-  ],
-  color: [
-    { id: "pink", label: "Pink" },
-    { id: "blue", label: "Blue" },
-    { id: "purple", label: "Ungu" },
-    { id: "red", label: "Merah" },
-  ],
-} as const;
+const budget = [
+  { label: "All", gte: 0, lte: undefined },
+  { label: "< 100K", gte: 0, lte: 100000 },
+  { label: "100K - 300K", gte: 100000, lte: 300000 },
+  { label: "300K - 500K", gte: 300000, lte: 500000 },
+  { label: "> 500K", gte: 500000, lte: undefined },
+];
 
-const FormSchema = z.object({
-  search: z.string().optional(),
-  category: z.array(z.string()).optional(),
-  type: z.array(z.string()).optional(),
-  style: z.array(z.string()).optional(),
-  untuk: z.array(z.string()).optional(),
-  color: z.array(z.string()).optional(),
-});
+const size = [
+  { key: "S", name: "Small" },
+  { key: "M", name: "Medium" },
+  { key: "L", name: "Large" },
+  { key: "XL", name: "Extra Large" },
+];
 
-export function ProductFilterForm() {
-  const { params, updateParams } = useUpdateSearchParams();
+export function ProductFilterForm({
+  onSubmit,
+}: {
+  onSubmit: (values: FilterSchema) => void;
+}) {
+  const { toast } = useToast();
+  const { updateParams } = useUpdateSearchParams();
 
-  const form = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: {
-      search: typeof params.search === "string" ? params.search : "",
-      category:
-        typeof params.category === "string" ? params.category.split(",") : [],
-      type: typeof params.type === "string" ? params.type.split(",") : [],
-      style: typeof params.style === "string" ? params.style.split(",") : [],
-      untuk: typeof params.for === "string" ? params.for.split(",") : [],
-      color: typeof params.color === "string" ? params.color.split(",") : [],
+  const { data: filters, isLoading } = UseFetchFilter({
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  const onSubmit = (values: z.infer<typeof FormSchema>) => {
-    updateParams({
-      search: values.search || null,
-      category: values.category?.length ? values.category.join(",") : null,
-      type: values.type?.length ? values.type.join(",") : null,
-      style: values.style?.length ? values.style.join(",") : null,
-      for: values.untuk?.length ? values.untuk.join(",") : null,
-      color: values.color?.length ? values.color.join(",") : null,
-    });
-  };
+  const form = useFormContext<FilterSchema>();
 
   const handleReset = () => {
     form.reset({
       search: "",
-      category: [],
-      type: [],
-      style: [],
-      untuk: [],
-      color: [],
+      categories: [],
+      types: [],
+      objectives: [],
+      colors: [],
+      size: [],
+      budget: { gte: 0, lte: undefined },
     });
     updateParams({
       search: null,
-      category: null,
-      type: null,
-      style: null,
-      for: null,
-      color: null,
+      categories: null,
+      types: null,
+      objectives: null,
+      colors: null,
+      size: null,
+      lte: null,
+      gte: null,
     });
   };
+
+  const allFilters = {
+    ...filters,
+    size: size,
+  };
+
+  if (isLoading || !filters || Object.keys(filters).length === 0) {
+    return (
+      <p className="text-center text-muted-foreground">Loading filters...</p>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -122,57 +106,98 @@ export function ProductFilterForm() {
           />
           <Button type="submit">Cari</Button>
         </div>
+
         <h2 className="text-lg font-semibold text-foreground">Filter</h2>
         <Separator />
 
-        {Object.entries(filters).map(([key, options]) => (
+        {Object.entries(allFilters).map(([key, options]) => (
           <FormField
             key={key}
             control={form.control}
-            name={key as keyof z.infer<typeof FormSchema>}
-            render={() => (
-              <FormItem className="flex flex-col gap-2">
-                <FormLabel className="capitalize">{key}</FormLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  {options.map((option) => (
-                    <FormField
-                      key={option.id}
-                      control={form.control}
-                      name={key as keyof z.infer<typeof FormSchema>}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+            name={key as keyof FilterSchema}
+            render={({ field }) => {
+              const fieldValue = Array.isArray(field.value) ? field.value : [];
+
+              return (
+                <FormItem className="flex flex-col gap-2">
+                  <FormLabel className="capitalize">{key}</FormLabel>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Array.isArray(options) &&
+                      options.map((option) => (
+                        <FormItem
+                          key={option.key}
+                          className="flex flex-row items-center space-x-3 space-y-0"
+                        >
                           <FormControl>
                             <Checkbox
                               className="border-border"
-                              checked={field.value?.includes(option.id)}
+                              checked={fieldValue.includes(option.key)}
                               onCheckedChange={(checked) => {
-                                const currentValue = Array.isArray(field.value)
-                                  ? field.value
-                                  : [];
-
-                                const newValue = checked
-                                  ? [...currentValue, option.id]
-                                  : currentValue.filter(
-                                      (v: string) => v !== option.id
-                                    );
+                                const newValue =
+                                  checked === true
+                                    ? [...fieldValue, option.key]
+                                    : fieldValue.filter(
+                                        (v) => v !== option.key
+                                      );
 
                                 field.onChange(newValue);
                               }}
                             />
                           </FormControl>
                           <FormLabel className="font-normal">
-                            {option.label}
+                            {option.name}
                           </FormLabel>
                         </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-                <Separator />
-              </FormItem>
-            )}
+                      ))}
+                  </div>
+                  <Separator />
+                </FormItem>
+              );
+            }}
           />
         ))}
+
+        <FormField
+          control={form.control}
+          name="budget"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Budget</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={(label) => {
+                    const selected = budget.find((b) => b.label === label);
+                    if (selected) {
+                      field.onChange({ gte: selected.gte, lte: selected.lte }); // simpan sebagai object
+                    }
+                  }}
+                  value={
+                    budget.find(
+                      (option) =>
+                        option.gte === field.value?.gte &&
+                        option.lte === field.value?.lte
+                    )?.label // cari label berdasarkan object yang tersimpan
+                  }
+                  className="flex flex-col space-y-1"
+                >
+                  {budget.map((option) => (
+                    <FormItem
+                      key={option.label}
+                      className="flex items-center space-x-3 space-y-0"
+                    >
+                      <FormControl>
+                        <RadioGroupItem value={option.label} />
+                      </FormControl>
+                      <FormLabel className="font-normal">
+                        {option.label}
+                      </FormLabel>
+                    </FormItem>
+                  ))}
+                </RadioGroup>
+              </FormControl>
+            </FormItem>
+          )}
+        />
 
         <div className="flex items-center gap-4">
           <Button
