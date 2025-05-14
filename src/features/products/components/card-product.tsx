@@ -191,8 +191,8 @@ export const CardProduct = ({
           <Image
             className="aspect-square mb-4 w-full object-cover"
             src={imageUrl.url}
-            width={100}
-            height={100}
+            width={500}
+            height={500}
             loading="lazy"
             alt="product"
           />

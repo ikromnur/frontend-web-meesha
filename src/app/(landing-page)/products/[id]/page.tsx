@@ -92,10 +92,11 @@ const DetailProduct = () => {
           {product?.imageUrl ? (
             <Image
               className="w-full aspect-[6/7] object-cover"
-              src={product.imageUrl}
+              src={product?.imageUrl?.url}
               alt="product"
-              width={700}
-              height={700}
+              loading="lazy"
+              width={1000}
+              height={1000}
             />
           ) : (
             <div className="w-full aspect-[6/7] bg-muted flex items-center justify-center text-muted-foreground">

@@ -373,7 +373,7 @@ const ProductForm = ({
               name="objective"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Untuk acara</FormLabel>
+                  <FormLabel>Type</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={(selectedId) => {
