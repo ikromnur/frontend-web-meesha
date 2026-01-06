@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import axios, { AxiosError } from "axios";
 import { getToken } from "next-auth/jwt";
 
+export const dynamic = "force-dynamic";
+
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
 

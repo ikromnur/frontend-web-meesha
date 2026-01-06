@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Dummy image path (di real case ini biasanya pakai URL image atau dynamic import)
 const productImage = "/product-image.png";
 
