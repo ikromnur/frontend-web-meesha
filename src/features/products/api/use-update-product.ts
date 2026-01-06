@@ -26,24 +26,37 @@ export const UseUpdateProduct = ({
       formData.append("stock", String(product.stock));
       formData.append("description", product.description);
 
+      // Backward compat: single image
       if (product.imageUrl instanceof File) {
         formData.append("imageUrl", product.imageUrl);
       }
+      // New: multiple images (max 5). Append each File under 'images'.
+      if (Array.isArray(product.images)) {
+        product.images.forEach((img) => {
+          if (img instanceof File) {
+            formData.append("images", img);
+          }
+        });
+      }
 
       formData.append("size", product.size);
+      formData.append("availability", product.availability);
 
       formData.append("variant", JSON.stringify(product.variant));
 
       formData.append("category", JSON.stringify(product.category));
-      formData.append("type", JSON.stringify(product.type));
+      // type removed
       formData.append("objective", JSON.stringify(product.objective));
       formData.append("color", JSON.stringify(product.color));
 
-      const { data } = await axiosInstance.put(`/products/${id}`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      if (product.removeImagePublicIds && product.removeImagePublicIds.length > 0) {
+        formData.append(
+          "removeImagePublicIds",
+          JSON.stringify(product.removeImagePublicIds)
+        );
+      }
+
+      const { data } = await axiosInstance.put(`/products/${id}`, formData);
 
       console.log(data);
 

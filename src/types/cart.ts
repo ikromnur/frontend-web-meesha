@@ -1,4 +1,5 @@
 import { StaticImageData } from "next/image";
+import { Availability } from "@/types/product";
 
 export enum Size {
   SMALL = "Small",
@@ -8,10 +9,12 @@ export enum Size {
 }
 
 export type Cart = {
-  id: number;
+  id: string; // gunakan UUID string
+  product_id?: string;
   name: string;
   image: string | StaticImageData;
   price: number;
   quantity: number;
   size: Size;
+  availability?: Availability;
 };

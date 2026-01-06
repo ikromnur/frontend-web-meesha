@@ -13,7 +13,17 @@ export const UseCreateMessage = ({
 }: UseCreateMessageProps) => {
   return useMutation({
     mutationFn: async (payload: ContactFormValues) => {
-      const { data } = await axiosInstance.post("/messages", payload);
+      // Map frontend form fields to backend schema
+      const backendPayload = {
+        senderName: payload.name,
+        senderEmail: payload.email,
+        subject: `Pesan dari ${payload.name}`,
+        body: payload.message,
+        // phone is not defined in Message schema; send along if backend tolerates extra fields
+        phone: payload.phone,
+      };
+
+      const { data } = await axiosInstance.post("/messages", backendPayload);
       return data;
     },
     onSuccess,

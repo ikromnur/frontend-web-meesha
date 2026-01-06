@@ -12,6 +12,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import { getSession } from "next-auth/react";
+import { axiosInstance } from "@/lib/axios";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -29,34 +30,104 @@ const LoginPage = () => {
   const handleLogin = async (data: LoginFormSchema) => {
     setIsLoading(true);
 
-    const result = await signIn("credentials", {
-      redirect: false,
-      email: data.email,
-      password: data.password,
-    });
+    // Preflight ke API login untuk membedakan kasus "belum verifikasi" vs kredensial salah
+    try {
+      const preflight = await axiosInstance.post("/auth/login", {
+        email: data.email,
+        password: data.password,
+      });
 
-    if (result?.error) {
-      console.log("Login failed:", result.error);
+      // Jika berhasil dan akun terverifikasi, lanjutkan create session via NextAuth
+      const payload = preflight.data?.data ?? preflight.data;
+      const isVerified = payload?.isVerified ?? payload?.is_verified ?? true;
+      if (!isVerified) {
+        toast({
+          title: "Akun belum terverifikasi",
+          description:
+            "Silakan cek email Anda dan verifikasi dengan kode OTP.",
+          variant: "destructive",
+        });
+        router.push(
+          `/otp-verification?email=${encodeURIComponent(
+            data.email,
+          )}&purpose=register&next=/login&auto=1`,
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Verified → sekarang buat sesi dengan NextAuth
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+      });
+
+      if (result?.error) {
+        console.log("Login failed:", result.error);
+        if (result.error.startsWith("USER_NOT_VERIFIED")) {
+          toast({
+            title: "Akun belum terverifikasi",
+            description:
+              "Silakan cek OTP dan verifikasi akun terlebih dahulu.",
+            variant: "destructive",
+          });
+          const emailFromError =
+            result.error.split(":")[1] || form.getValues("email");
+          router.push(
+            `/otp-verification?email=${encodeURIComponent(
+              emailFromError,
+            )}&purpose=register&next=/login&auto=1`,
+          );
+        } else {
+          toast({
+            title: "Gagal login",
+            description: "Email atau password salah",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Berhasil",
+          description: "Login successfully",
+        });
+
+        const updatedSession = await getSession();
+
+        if (updatedSession?.user?.role === "ADMIN") {
+          router.push("/dashboard");
+        } else {
+          router.push("/");
+        }
+
+        form.reset();
+      }
+    } catch (error: any) {
+      // Tangani error dari preflight: bedakan belum verifikasi vs salah kredensial
+      if (error?.response?.status === 403) {
+        const msg = error?.response?.data?.message?.toLowerCase?.() || "";
+        if (msg.includes("not verified") || msg.includes("belum verifikasi")) {
+          toast({
+            title: "Akun belum terverifikasi",
+            description:
+              "Silakan cek email dan lakukan verifikasi OTP terlebih dahulu.",
+            variant: "destructive",
+          });
+          router.push(
+            `/otp-verification?email=${encodeURIComponent(
+              data.email,
+            )}&purpose=register&next=/login`,
+          );
+          setIsLoading(false);
+          return;
+        }
+      }
+
       toast({
         title: "Gagal login",
         description: "Email atau password salah",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Berhasil",
-        description: "Login successfully",
-      });
-
-      const updatedSession = await getSession();
-
-      if (updatedSession?.user?.role === "ADMIN") {
-        router.push("/dashboard");
-      } else {
-        router.push("/");
-      }
-
-      form.reset();
     }
 
     setIsLoading(false);

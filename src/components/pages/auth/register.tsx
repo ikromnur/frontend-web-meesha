@@ -23,6 +23,7 @@ const RegisterPage = () => {
   const form = useForm<RegisterFormSchema>({
     resolver: zodResolver(registerFormSchema),
     defaultValues: {
+      username: "",
       name: "",
       email: "",
       phone: "",
@@ -37,24 +38,32 @@ const RegisterPage = () => {
 
   const { mutate, isPending: registerLoading } = UsePostRegister({
     onSuccess: () => {
+      const email = form.getValues("email");
       toast({
         title: "Berhasil",
-        description: "User created successfully",
+        description: "Akun dibuat. Silakan verifikasi OTP yang dikirim.",
       });
+      // Arahkan ke halaman verifikasi OTP untuk aktivasi akun
+      router.push(`/otp-verification?email=${encodeURIComponent(email)}&purpose=register&next=/login`);
+      // Jangan reset form sebelum navigasi agar email tetap tersedia
       form.reset({
+        username: "",
         name: "",
         email: "",
         phone: "",
         password: "",
+        confirmPassword: "",
       });
-      router.push("/login");
     },
     onError: (e: unknown) => {
       if (axios.isAxiosError(e)) {
+        const errorMessage =
+          e.response?.data?.message ||
+          e.response?.data?.error ||
+          "Terjadi kesalahan dari server";
         toast({
-          title: "Error",
-          description:
-            e.response?.data?.error || "Terjadi kesalahan dari server",
+          title: "Gagal Mendaftar",
+          description: errorMessage,
           variant: "destructive",
         });
       } else {

@@ -36,7 +36,7 @@ const AboutPage = () => {
       onSuccess: () => {
         toast({
           title: "Success",
-          description: "Message sent successfully",
+  description: "Pesan berhasil dikirim",
         });
         form.reset();
       },

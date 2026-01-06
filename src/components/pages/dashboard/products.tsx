@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { UseFetchProducts } from "@/features/products/api/use-fetch-products";
 import { useUpdateSearchParams } from "@/hooks/use-search-params";
-import { Product, Size } from "@/types/product";
+import { Availability, Product, Size } from "@/types/product";
 import { CardProduct } from "@/features/products/components/card-product";
 import { FormProvider, useForm } from "react-hook-form";
 import { filterSchema, FilterSchema } from "@/features/products/form/filter";
@@ -29,6 +29,7 @@ import {
 import ProductForm from "@/features/products/components/product-form";
 import { UseCreateProduct } from "@/features/products/api/use-create-product";
 import { UseUpdateProduct } from "@/features/products/api/use-update-product";
+import CategoryList from "@/features/categories/components/category-list";
 
 const initialValueFormProduct: ProductSchema = {
   name: "",
@@ -37,11 +38,13 @@ const initialValueFormProduct: ProductSchema = {
   description: "",
   imageUrl: undefined,
   size: Size.MEDIUM,
+  availability: Availability.READY,
   variant: [],
   category: { id: "", key: "", name: "" },
-  type: { id: "", key: "", name: "" },
+  // type: { id: "", key: "", name: "" },
   objective: { id: "", key: "", name: "" },
   color: { id: "", key: "", name: "" },
+  removeImagePublicIds: [],
 };
 
 export default function DashboardProducts() {
@@ -54,8 +57,17 @@ export default function DashboardProducts() {
   const { data: products, refetch } = UseFetchProducts({
     categories:
       typeof params.categories === "string" ? params.categories.split(",") : [],
-    types: typeof params.types === "string" ? params.types.split(",") : [],
     size: typeof params.size === "string" ? params.size.split(",") : [],
+    availability:
+      typeof params.availability === "string"
+        ? params.availability.split(",")
+        : [],
+    limit:
+      typeof params.limit === "string"
+        ? params.limit === "all"
+          ? "all"
+          : parseInt(params.limit)
+        : 1000,
     page,
     onError: (error) => {
       toast({
@@ -71,7 +83,7 @@ export default function DashboardProducts() {
       onSuccess: () => {
         toast({
           title: "Success",
-          description: "Product created successfully",
+          description: "Produk berhasil dibuat",
         });
         setOpen(false);
         refetch();
@@ -90,7 +102,7 @@ export default function DashboardProducts() {
       onSuccess: () => {
         toast({
           title: "Success",
-          description: "Product updated successfully",
+          description: "Produk berhasil diperbarui",
         });
         setOpen(false);
         refetch();
@@ -108,7 +120,7 @@ export default function DashboardProducts() {
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Product deleted successfully",
+        description: "Produk berhasil dihapus",
       });
       refetch();
     },
@@ -128,8 +140,17 @@ export default function DashboardProducts() {
         typeof params.categories === "string"
           ? params.categories.split(",")
           : [],
-      types: typeof params.types === "string" ? params.types.split(",") : [],
       size: typeof params.size === "string" ? params.size.split(",") : [],
+      availability:
+        typeof params.availability === "string"
+          ? params.availability.split(",")
+          : [],
+      pageSize:
+        typeof params.limit === "string"
+          ? params.limit === "all"
+            ? ("all" as const)
+            : parseInt(params.limit)
+          : 1000,
     },
   });
 
@@ -143,8 +164,11 @@ export default function DashboardProducts() {
       categories: values.categories?.length
         ? values.categories.join(",")
         : null,
-      types: values.types?.length ? values.types.join(",") : null,
       size: values.size?.length ? values.size.join(",") : null,
+      availability: values.availability?.length
+        ? values.availability.join(",")
+        : null,
+      limit: String(values.pageSize ?? 1000),
     });
   };
 
@@ -163,11 +187,28 @@ export default function DashboardProducts() {
   };
 
   const handleEditProduct = (product: Product) => {
-    productForm.reset({
-      ...product,
+    const productForForm: ProductFormValues = {
       id: product.id,
-      size: product.size as Size,
-    });
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      description: product.description,
+      imageUrl: Array.isArray(product.imageUrl) ? undefined : product.imageUrl,
+      images:
+        (product as any)?.images ??
+        (Array.isArray((product as any)?.imageUrl)
+          ? (product as any)?.imageUrl
+          : []),
+      size: product.size,
+      availability: product.availability,
+      variant: product.variant,
+      category: product.category,
+      // type: (product as any).type ?? { id: "", key: "", name: "" },
+      objective: product.objective ?? { id: "", key: "", name: "" },
+      color: product.color ?? { id: "", key: "", name: "" },
+      removeImagePublicIds: [],
+    };
+    productForm.reset(productForForm);
     setEditMode("edit");
     setOpen(true);
   };
@@ -189,7 +230,7 @@ export default function DashboardProducts() {
   );
 
   useEffect(() => {
-    const fields = ["categories", "types", "size"] as const;
+    const fields = ["categories", "size", "availability"] as const;
 
     fields.forEach((field) => {
       const value = params[field];
@@ -198,6 +239,17 @@ export default function DashboardProducts() {
         typeof value === "string" ? value.split(",") : []
       );
     });
+
+    // Sync pageSize from query param 'limit'
+    const limitParam = params.limit;
+    filterForm.setValue(
+      "pageSize",
+      typeof limitParam === "string"
+        ? limitParam === "all"
+          ? ("all" as const)
+          : parseInt(limitParam)
+        : 1000
+    );
   }, [params, filterForm]);
 
   useEffect(() => {
@@ -210,8 +262,8 @@ export default function DashboardProducts() {
   const handleResetFilter = () => {
     filterForm.reset({
       categories: [],
-      types: [],
       size: [],
+      availability: [],
     });
     resetParams();
   };
@@ -220,6 +272,10 @@ export default function DashboardProducts() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Category List Section */}
+      <CategoryList />
+
+      {/* Product Section */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Daftar Produk</h1>
         <p className="text-muted-foreground">
@@ -330,13 +386,15 @@ export default function DashboardProducts() {
       )}
 
       {/* Pagination Component */}
-      <Pagination
-        page={products?.page}
-        setPage={setPage}
-        totalPages={products?.totalPages}
-        handleQueryParams={handlePageChange}
-        className="mt-6"
-      />
+      {(products?.totalPages ?? 1) > 1 && (
+        <Pagination
+          page={products?.page ?? 1}
+          setPage={setPage}
+          totalPages={products?.totalPages ?? 1}
+          handleQueryParams={handlePageChange}
+          className="mt-6"
+        />
+      )}
 
       {/* Form Product */}
       <FormProvider {...productForm}>

@@ -15,7 +15,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
   const steps = [
     {
       id: 1,
-      name: "Cart",
+      name: "Keranjang",
       icon: <FaShoppingCart />,
     },
     {
@@ -25,7 +25,7 @@ const ProgressStepper: React.FC<ProgressStepperProps> = ({
     },
     {
       id: 3,
-      name: "Payment",
+      name: "Pembayaran",
       icon: <FaCreditCard />,
     },
   ];

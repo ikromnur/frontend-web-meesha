@@ -24,6 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormProvider, useForm } from "react-hook-form";
 import { filterSchema, FilterSchema } from "@/features/products/form/filter";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
+import { PopularProductsCarousel } from "@/features/products/components/popular-products-carousel";
 
 const ProductsPage = () => {
   const { toast } = useToast();
@@ -33,14 +35,19 @@ const ProductsPage = () => {
   const { data: products, isLoading } = UseFetchProducts({
     categories:
       typeof params.categories === "string" ? params.categories.split(",") : [],
-    types: typeof params.types === "string" ? params.types.split(",") : [],
     objectives:
       typeof params.objectives === "string" ? params.objectives.split(",") : [],
     colors: typeof params.colors === "string" ? params.colors.split(",") : [],
     search: typeof params.search === "string" ? params.search : "",
     size: typeof params.size === "string" ? params.size.split(",") : [],
+    availability:
+      typeof params.availability === "string"
+        ? params.availability.split(",")
+        : [],
     gte: typeof params.gte === "string" ? parseInt(params.gte) : 0,
     lte: typeof params.lte === "string" ? parseInt(params.lte) : 0,
+    // Fix page size to 12 for user listing
+    limit: 12,
     page,
     onError: (error) => {
       toast({
@@ -51,6 +58,8 @@ const ProductsPage = () => {
     },
   });
 
+  // Sync pageSize from query param 'limit' (moved below form init)
+
   const form = useForm<FilterSchema>({
     resolver: zodResolver(filterSchema),
     defaultValues: {
@@ -59,13 +68,18 @@ const ProductsPage = () => {
         typeof params.categories === "string"
           ? params.categories.split(",")
           : [],
-      types: typeof params.types === "string" ? params.types.split(",") : [],
       objectives:
         typeof params.objectives === "string"
           ? params.objectives.split(",")
           : [],
       colors: typeof params.colors === "string" ? params.colors.split(",") : [],
       size: typeof params.size === "string" ? params.size.split(",") : [],
+      availability:
+        typeof params.availability === "string"
+          ? params.availability.split(",")
+          : [],
+      // Keep internal default to 12; control hidden for user listing
+      pageSize: 12,
       budget: {
         gte: typeof params.gte === "string" ? parseInt(params.gte) : 0,
         lte: typeof params.lte === "string" ? parseInt(params.lte) : undefined,
@@ -73,20 +87,30 @@ const ProductsPage = () => {
     },
   });
 
+  // Sync pageSize from query param 'limit' (after form initialized)
+  // No sync from query for pageSize on user listing (fixed to 12)
+  useEffect(() => {
+    form.setValue("pageSize", 12);
+  }, [form]);
+
   const onSubmitFilter = (values: FilterSchema) => {
     updateParams({
       search: values.search || null,
       categories: values.categories?.length
         ? values.categories.join(",")
         : null,
-      types: values.types?.length ? values.types.join(",") : null,
       objectives: values.objectives?.length
         ? values.objectives.join(",")
         : null,
       colors: values.colors?.length ? values.colors.join(",") : null,
       size: values.size?.length ? values.size.join(",") : null,
+      availability: values.availability?.length
+        ? values.availability.join(",")
+        : null,
       lte: String(values.budget?.lte) || "0",
       gte: String(values.budget?.gte) || "0",
+      // Always set limit to 12 on user listing
+      limit: "12",
     });
   };
 
@@ -109,6 +133,12 @@ const ProductsPage = () => {
           Flowers in stylish disguise
         </h1>
       </div>
+      {/* Popular Products Carousel */}
+      <PopularProductsCarousel
+        title="Produk Populer"
+        limit={10}
+        className="mb-10"
+      />
       <div className="flex justify-between gap-4">
         <section className="max-w-96 w-full hidden lg:block p-3">
           <FormProvider {...form}>
@@ -136,7 +166,7 @@ const ProductsPage = () => {
             </SheetTrigger>
             <SheetContent side={"top"} className="overflow-y-auto h-full">
               <div className="max-w-md mx-auto">
-                <SheetTitle>Cari Bouquet</SheetTitle>
+                <SheetTitle>Cari Pilihan Terbaik</SheetTitle>
                 <Separator className="mt-2 mb-4" />
                 <FormProvider {...form}>
                   <ProductFilterForm onSubmit={onSubmitFilter} />
@@ -170,12 +200,14 @@ const ProductsPage = () => {
           </div>
 
           <Separator className="my-8" />
-          <Pagination
-            page={products?.page || 1}
-            setPage={handlePageChange}
-            totalPages={products?.totalPages || 1}
-            className="justify-center md:justify-start"
-          />
+          {(products?.totalPages ?? 1) > 1 && (
+            <Pagination
+              page={products?.page || 1}
+              setPage={handlePageChange}
+              totalPages={products?.totalPages || 1}
+              className="justify-center md:justify-start"
+            />
+          )}
         </section>
       </div>
     </div>

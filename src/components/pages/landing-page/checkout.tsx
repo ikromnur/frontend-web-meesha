@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Cart } from "@/types/cart";
 import { CalendarIcon, Clock } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { FormLabel } from "@/components/ui/form";
@@ -36,6 +36,10 @@ import { Input } from "@/components/ui/input";
 import { UseCreateTransaction } from "@/features/transaction/api/use-create-transaction";
 import { useSession } from "next-auth/react";
 import UnauthorizePage from "../unauthorize";
+import { PaymentMethodSelector } from "@/features/payment/components/payment-method-selector";
+import { useCreateTripayClosed } from "@/features/payment/api/use-create-tripay-closed";
+import { useRouter } from "next/navigation";
+import { Availability } from "@/types/product";
 
 export const transactionSchema = z.object({
   date: z.date({ required_error: "Tanggal harus dipilih" }),
@@ -50,23 +54,32 @@ export type TransactionSchema = z.infer<typeof transactionSchema>;
 const CheckoutPage = () => {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const [hour, setHour] = useState<number | null>(null);
-  const [minute, setMinute] = useState<number | null>(null);
+  const router = useRouter();
+  const [dateOpen, setDateOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   const form = useForm<TransactionSchema>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       date: undefined,
       time: "",
-      name: "",
-      email: "",
-      phone: "",
+      name: session?.user?.name || "",
+      email: session?.user?.email || "",
+      phone: session?.user?.phone || "",
     },
   });
 
+  useEffect(() => {
+    if (session?.user) {
+      form.setValue("name", session.user.name || "");
+      form.setValue("email", session.user.email || "");
+      form.setValue("phone", session.user.phone || "");
+    }
+  }, [session, form]);
+
   const { data: cartData } = UseGetCart({
     onError(e) {
-      console.log(e);
       toast({
         title: "Error",
         description: e.message,
@@ -75,26 +88,93 @@ const CheckoutPage = () => {
     },
   });
 
-  const { mutate: createTransaction, isPending: transactionLoading } =
+  // Hitung minimal hari untuk pickup berdasarkan item di keranjang
+  const leadDaysForAvailability = (a?: Availability) => {
+    switch (a) {
+      case Availability.PO_5_DAY:
+        return 5;
+      case Availability.PO_2_DAY:
+        return 2;
+      case Availability.READY:
+        return 0;
+      default:
+        return 0;
+    }
+  };
+
+  const minLeadDays = useMemo(() => {
+    const days = (Array.isArray(cartData) ? cartData : []).map((item: Cart) =>
+      leadDaysForAvailability(item.availability as Availability)
+    );
+    return days.length ? Math.max(...days) : 0;
+  }, [cartData]);
+
+  const minPickupDate = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + (isFinite(minLeadDays) ? minLeadDays : 0));
+    return d;
+  }, [minLeadDays]);
+
+  // Opsi waktu 09:00 sampai 22:00 tiap 10 menit (22:00 batas akhir)
+  const timeOptions = useMemo(() => {
+    const times: string[] = [];
+    for (let h = 9; h <= 22; h++) {
+      const maxMinute = h === 22 ? 0 : 50;
+      for (let m = 0; m <= maxMinute; m += 10) {
+        const hh = String(h).padStart(2, "0");
+        const mm = String(m).padStart(2, "0");
+        times.push(`${hh}:${mm}`);
+      }
+    }
+    return times;
+  }, []);
+
+  const { mutateAsync: createOrderAsync, isPending: transactionLoading } =
     UseCreateTransaction({
       onError(e) {
-        console.log(e);
         toast({
           title: "Error",
           description: e.message,
           variant: "destructive",
         });
       },
-      onSuccess() {
-        form.reset();
+    });
+
+  const { mutate: createTripay, isPending: tripayLoading } =
+    useCreateTripayClosed({
+      onSuccess: (res: any) => {
+        // If redirect type
+        const checkoutUrl = res?.data?.checkout_url || res?.checkout_url;
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        }
+        const instructions = res?.data?.instructions || res?.instructions;
+        const orderIdFromRes = res?.data?.merchant_ref || res?.merchant_ref;
+        if (instructions && orderIdFromRes) {
+          try {
+            sessionStorage.setItem(
+              `tripay:instructions:${orderIdFromRes}`,
+              JSON.stringify(res?.data || res)
+            );
+          } catch {}
+          router.push(`/orders/${orderIdFromRes}/status`);
+          return;
+        }
         toast({
           title: "Berhasil",
-          description: "Transaksi berhasil dibuat.",
+          description: "Transaksi pembayaran dibuat.",
         });
+      },
+      onError: (e: unknown) => {
+        const message =
+          e instanceof Error ? e.message : "Gagal membuat transaksi pembayaran";
+        toast({ title: "Error", description: message, variant: "destructive" });
       },
     });
 
-  const onSubmit = (data: TransactionSchema) => {
+  const onSubmit = async (data: TransactionSchema) => {
     if (!cartData || cartData.length === 0) {
       toast({
         title: "Keranjang kosong",
@@ -104,27 +184,102 @@ const CheckoutPage = () => {
       return;
     }
 
-    const payload = {
-      ...data,
-      cart: cartData.map((item: Cart) => ({
-        product_id: item.id,
-        quantity: item.quantity,
-        size: item.size,
-        price: item.price,
-      })),
-    };
+    if (!paymentMethod) {
+      toast({
+        title: "Metode belum dipilih",
+        description: "Silakan pilih metode pembayaran.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    createTransaction(payload);
+    // Validasi minimal tanggal pickup sesuai item PO
+    if (data?.date) {
+      const picked = new Date(data.date);
+      picked.setHours(0, 0, 0, 0);
+      if (picked < minPickupDate) {
+        toast({
+          title: "Tanggal terlalu cepat",
+          description: `Produk PO membutuhkan waktu. Minimal: ${format(
+            minPickupDate,
+            "PPP"
+          )}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Susun payload order sesuai backend
+    const orderItems = cartData.map((item: Cart) => ({
+      productId: item.product_id ?? item.id,
+      quantity: item.quantity,
+      price: item.price,
+    }));
+
+    const pickupInfo = data?.date
+      ? `${format(data.date, "PPP")} ${data.time || ""}`.trim()
+      : data.time;
+
+    const orderPayload: any = {
+      shippingAddress: pickupInfo
+        ? `Pengambilan: ${pickupInfo}`
+        : "Pickup - Meesha Store",
+      paymentMethod: "TRIPAY",
+      orderItems,
+    };
+    // Sertakan jadwal ambil terstruktur agar tampil di user & admin
+    if (data?.date) {
+      orderPayload.pickup_date = data.date.toISOString();
+    }
+    if (data?.time) {
+      orderPayload.pickup_time = data.time; // format HH:mm
+    }
+
+    try {
+      const resp = await createOrderAsync(orderPayload);
+      // Ambil id dan totalAmount dari response (sudah dinormalisasi di hook)
+      const orderId = resp?.id ?? resp?.orderId;
+      const totalAmount = resp?.totalAmount ?? totalPrice;
+
+      if (!orderId) {
+        toast({
+          title: "Gagal",
+          description: "Order ID tidak ditemukan dari backend",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const items = (cartData || []).map((c: Cart) => ({
+        name: c.name,
+        price: c.price,
+        quantity: c.quantity,
+      }));
+      const returnUrl = process.env.NEXT_PUBLIC_BASE_URL
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/orders/${orderId}/status`
+        : undefined;
+
+      // Lanjutkan buat transaksi Tripay (closed)
+      createTripay({
+        method: paymentMethod,
+        amount: Number(totalAmount) || totalPrice,
+        orderId: String(orderId),
+        customer: {
+          name: form.getValues("name") || session?.user?.name || "",
+          email: form.getValues("email") || session?.user?.email || "",
+          phone: form.getValues("phone") || session?.user?.phone || "",
+        },
+        items,
+        returnUrl,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Gagal membuat order";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
   };
 
-  useEffect(() => {
-    if (hour !== null && minute !== null) {
-      const formatted = `${String(hour).padStart(2, "0")}:${String(
-        minute
-      ).padStart(2, "0")}`;
-      form.setValue("time", formatted);
-    }
-  }, [hour, minute, form]);
+  // Tidak lagi menggunakan hour/minute picker; waktu dipilih dari daftar opsi
 
   const totalPrice =
     cartData?.reduce(
@@ -147,7 +302,7 @@ const CheckoutPage = () => {
           <section className="space-y-6">
             <h4 className="font-medium text-xl">Order Summary</h4>
             <div className="flex flex-col gap-4 w-full border rounded-md p-4">
-              {cartData?.map((item: Cart) => (
+              {cartData?.map((item: Cart, index: number) => (
                 <React.Fragment key={item.id}>
                   <CartItem
                     variant="checkout"
@@ -157,8 +312,9 @@ const CheckoutPage = () => {
                     image={item.image}
                     title={item.name}
                     price={item.price}
+                    availability={item.availability}
                   />
-                  {item.id !== cartData?.length && <Separator />}
+                  {index !== cartData.length - 1 && <Separator />}
                 </React.Fragment>
               ))}
             </div>
@@ -171,7 +327,7 @@ const CheckoutPage = () => {
                   <FormItem>
                     <FormLabel>Collection Date</FormLabel>
                     <FormControl>
-                      <Popover>
+                      <Popover open={dateOpen} onOpenChange={setDateOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
@@ -189,21 +345,40 @@ const CheckoutPage = () => {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-2 flex flex-col gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => field.onChange(new Date())}
-                          >
-                            Today
-                          </Button>
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(d) => {
+                              if (!d) return;
+                              const picked = new Date(d);
+                              picked.setHours(0, 0, 0, 0);
+                              if (picked < minPickupDate) {
+                                toast({
+                                  title: "Tanggal terlalu cepat",
+                                  description: `Minimal pengambilan: ${format(
+                                    minPickupDate,
+                                    "PPP"
+                                  )}`,
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              field.onChange(d);
+                              setDateOpen(false);
+                            }}
+                            disabled={(date) => {
+                              const dd = new Date(date as Date);
+                              dd.setHours(0, 0, 0, 0);
+                              return dd < minPickupDate;
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
                       </Popover>
                     </FormControl>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Minimal: {format(minPickupDate, "PPP")} 09:00
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -216,7 +391,7 @@ const CheckoutPage = () => {
                 render={({ field }) => (
                   <FormItem className="w-full">
                     <FormLabel>Collection Time</FormLabel>
-                    <Popover>
+                    <Popover open={timeOpen} onOpenChange={setTimeOpen}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
@@ -229,38 +404,26 @@ const CheckoutPage = () => {
                           {field.value || <span>Choose time</span>}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="flex gap-4 p-4 w-fit">
-                        {/* Hour Picker */}
-                        <div className="flex flex-col max-h-[200px] overflow-y-auto pr-2 no-scrollbar">
-                          {Array.from({ length: 24 }, (_, i) => (
-                            <Button
-                              key={i}
-                              type="button"
-                              variant={hour === i ? "default" : "ghost"}
-                              onClick={() => setHour(i)}
-                              className="justify-start"
-                            >
-                              {String(i).padStart(2, "0")}
-                            </Button>
-                          ))}
-                        </div>
-
-                        {/* Minute Picker */}
-                        <div className="flex flex-col max-h-[200px] overflow-y-auto pr-2 no-scrollbar">
-                          {Array.from({ length: 60 }, (_, i) => (
-                            <Button
-                              key={i}
-                              type="button"
-                              variant={minute === i ? "default" : "ghost"}
-                              onClick={() => setMinute(i)}
-                              className="justify-start"
-                            >
-                              {String(i).padStart(2, "0")}
-                            </Button>
-                          ))}
-                        </div>
+                      <PopoverContent className="grid grid-cols-3 gap-2 p-4 w-[360px] max-h-[240px] overflow-y-auto no-scrollbar">
+                        {timeOptions.map((t) => (
+                          <Button
+                            key={t}
+                            type="button"
+                            variant={field.value === t ? "default" : "ghost"}
+                            className="justify-center"
+                            onClick={() => {
+                              field.onChange(t);
+                              setTimeOpen(false);
+                            }}
+                          >
+                            {t}
+                          </Button>
+                        ))}
                       </PopoverContent>
                     </Popover>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Jam operasional: 09:00–22:00, interval 10 menit
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -281,6 +444,11 @@ const CheckoutPage = () => {
                 <h6 className="font-medium">Total due</h6>
                 <span>{formatRupiah(totalPrice)}</span>
               </div>
+              <Separator className="my-2" />
+              <PaymentMethodSelector
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+              />
             </div>
           </section>
           <section className="flex flex-col space-y-6">
@@ -330,14 +498,23 @@ const CheckoutPage = () => {
                 )}
               />
             </div>
-            <Button
-              type="submit"
-              disabled={transactionLoading}
-              className="w-fit ml-auto"
-              size={"lg"}
-            >
-              {transactionLoading ? "Loading..." : "Continue"}
-            </Button>
+            <div className="flex items-center gap-3 justify-end">
+              <Button
+                type="submit"
+                disabled={
+                  transactionLoading ||
+                  tripayLoading ||
+                  !paymentMethod ||
+                  totalPrice <= 0
+                }
+                className="w-fit"
+                size={"lg"}
+              >
+                {transactionLoading || tripayLoading
+                  ? "Memproses..."
+                  : "Lanjutkan"}
+              </Button>
+            </div>
           </section>
         </form>
       </Form>

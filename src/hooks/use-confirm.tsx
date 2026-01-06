@@ -13,19 +13,25 @@ import React, { useState } from "react";
 export const useConfirm = (
   title: string,
   message: string
-): [() => JSX.Element, () => Promise<unknown>] => {
+): [() => JSX.Element, (options?: { title?: string; message?: string }) => Promise<unknown>] => {
   const [promise, setPromise] = useState<{
     resolve: (value: boolean) => void;
   } | null>(null);
+  const [runtimeTitle, setRuntimeTitle] = useState<string | null>(null);
+  const [runtimeMessage, setRuntimeMessage] = useState<string | null>(null);
 
-  const Confirm = () => {
+  const Confirm = (options?: { title?: string; message?: string }) => {
     return new Promise((resolve) => {
+      if (options?.title) setRuntimeTitle(options.title);
+      if (options?.message) setRuntimeMessage(options.message);
       setPromise({ resolve });
     });
   };
 
   const handleClose = () => {
     setPromise(null);
+    setRuntimeTitle(null);
+    setRuntimeMessage(null);
   };
 
   const handleCancel = () => {
@@ -47,8 +53,8 @@ export const useConfirm = (
         <DialogClose onClick={handleCancel} />
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{message}</DialogDescription>
+            <DialogTitle>{runtimeTitle ?? title}</DialogTitle>
+            <DialogDescription>{runtimeMessage ?? message}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-2">
             <Button onClick={handleCancel} variant={"outline"}>

@@ -26,8 +26,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationDropdown } from "@/components/container/notification-dropdown";
 import { navigation } from "@/data/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { UseGetCart } from "@/features/cart/api/use-get-cart";
+import { Cart } from "@/types/cart";
 
 const Navigation = ({
   className,
@@ -81,6 +84,16 @@ const DefaultHeader = () => {
   const { data: session } = useSession();
   const user = session?.user;
   const router = useRouter();
+  const { data: cartData } = UseGetCart({
+    onError(e) {
+      console.error("Failed to fetch cart:", e.message);
+    },
+    enabled: Boolean(session?.accessToken),
+  });
+
+  const cartItemCount = Array.isArray(cartData)
+    ? cartData.reduce((total: number, item: Cart) => total + item.quantity, 0)
+    : 0;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -110,6 +123,9 @@ const DefaultHeader = () => {
 
         {/* Right section */}
         <div className="flex items-center gap-4">
+          {/* Notifications */}
+          {session && <NotificationDropdown />}
+
           {/* Cart */}
           <div className="relative">
             <Button
@@ -120,12 +136,14 @@ const DefaultHeader = () => {
             >
               <TbShoppingBag />
             </Button>
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 text-[10px] px-1 py-1 w-5 h-5 flex items-center justify-center rounded-full"
-            >
-              1
-            </Badge>
+            {cartItemCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-1 -right-1 text-[10px] px-1 py-1 w-5 h-5 flex items-center justify-center rounded-full"
+              >
+                {cartItemCount > 99 ? "99+" : cartItemCount}
+              </Badge>
+            )}
           </div>
 
           {/* Auth */}
@@ -135,18 +153,31 @@ const DefaultHeader = () => {
                 <div className="flex items-center gap-3 cursor-pointer">
                   <Avatar>
                     <AvatarImage
-                      src={user?.image || "/default-profile.png"}
-                      alt={user?.name || "User"}
+                      src={(function () {
+                        const backendUrl =
+                          process.env.NEXT_PUBLIC_BACKEND_URL || "";
+                        const img = user?.image;
+                        if (!img) return "/default-profile.png";
+                        if (/^https?:\/\//.test(img)) return img;
+                        return `${backendUrl}${
+                          img.startsWith("/") ? "" : "/"
+                        }${img}`;
+                      })()}
+                      alt={user?.name || user?.username || "User"}
                     />
                     <AvatarFallback>
-                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                      {(user?.name || user?.username || "U")
+                        .charAt(0)
+                        .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-col hidden md:flex">
+                    <span className="text-sm font-semibold">
+                      {user?.name || user?.username || "User"}
+                    </span>
                     <span className="text-xs text-[#C0C3C6]">
                       {getGreeting()}
                     </span>
-                    <span className="text-sm font-semibold">{user?.name}</span>
                   </div>
                 </div>
               </DropdownMenuTrigger>

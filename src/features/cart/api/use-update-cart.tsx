@@ -2,7 +2,7 @@ import { axiosInstance } from "@/lib/axios";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface UpdateCartPayload {
-  cartId: number;
+  cartId: string; // gunakan UUID string
   quantity?: number;
   size?: string;
 }
@@ -16,11 +16,11 @@ export const UseUpdateCart = ({ onSuccess, onError }: UseUpdateCartProps) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ cartId, ...payload }: UpdateCartPayload) => {
-      const { data } = await axiosInstance.patch(
-        `/api/carts/${cartId}`,
-        payload
-      );
+    mutationFn: async ({ cartId, quantity, size }: UpdateCartPayload) => {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const url = `${origin}/api/carts/${cartId}`;
+      const body = { ...(quantity !== undefined ? { quantity } : {}), ...(size ? { size } : {}) };
+      const { data } = await axiosInstance.put(url, body);
       return data;
     },
     onSuccess: () => {

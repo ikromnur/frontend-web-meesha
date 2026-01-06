@@ -25,6 +25,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Availability } from "@/types/product";
 
 const budget = [
   { label: "All", gte: 0, lte: undefined },
@@ -69,10 +70,11 @@ export function ProductFilterForm({
     form.reset({
       search: "",
       categories: [],
-      types: [],
       objectives: [],
       colors: [],
       size: [],
+      availability: [],
+      pageSize: 12,
       budget: { gte: 0, lte: undefined },
     });
     resetParams();
@@ -85,8 +87,12 @@ export function ProductFilterForm({
 
   const adminFilter = {
     ...(filters?.categories && { categories: filters.categories }),
-    ...(filters?.types && { types: filters.types }),
     ...(size && { size }),
+    availability: [
+      { key: Availability.READY, name: "Ready di toko" },
+      { key: Availability.PO_2_DAY, name: "Pre-Order 2 hari" },
+      { key: Availability.PO_5_DAY, name: "PO 5 hari" },
+    ],
   };
 
   if (isLoading || !filters || Object.keys(filters).length === 0) {
@@ -114,7 +120,16 @@ export function ProductFilterForm({
                 <React.Fragment key={key}>
                   <AccordionItem value={key}>
                     <AccordionTrigger>
-                      Filter Berdasarkan {key} Produk
+                      {(() => {
+                        const labelMap: Record<string, string> = {
+                          categories: "Kategori",
+                          size: "Ukuran Bouquet",
+                          availability: "Ketersediaan",
+                        };
+                        return `Filter Berdasarkan ${
+                          labelMap[key] ?? key
+                        } Produk`;
+                      })()}
                     </AccordionTrigger>
                     <AccordionContent>
                       <FormField
@@ -183,7 +198,10 @@ export function ProductFilterForm({
                 render={({ field }) => (
                   <FormItem className="flex-1">
                     <FormControl>
-                      <Input placeholder="Search Bouquet..." {...field} />
+                      <Input
+                        placeholder="Cari mawar, wisuda, atau snack..."
+                        {...field}
+                      />
                     </FormControl>
                   </FormItem>
                 )}
@@ -193,62 +211,91 @@ export function ProductFilterForm({
 
             <h2 className="text-lg font-semibold text-foreground">Filter</h2>
             <Separator />
+            {(() => {
+              const labelMap: Record<string, string> = {
+                categories: "Kategori",
+                objectives: "Berdasarkan Acara",
+                availability: "Ketersediaan",
+              };
 
-            {Object.entries(allFilters).map(([key, options]) => (
-              <FormField
-                key={key}
-                control={form.control}
-                name={key as keyof FilterSchema}
-                render={({ field }) => {
-                  const fieldValue = Array.isArray(field.value)
-                    ? field.value
-                    : [];
+              const orderedFilters: Record<string, any[]> = {
+                categories: filters.categories || [],
+                objectives: filters.objectives || [],
+                availability: [
+                  { key: Availability.READY, name: "Ready di toko" },
+                  { key: Availability.PO_2_DAY, name: "Pre-Order 2 hari" },
+                  { key: Availability.PO_5_DAY, name: "PO 5 hari" },
+                ],
+              };
 
-                  return (
-                    <FormItem className="flex flex-col gap-2">
-                      <FormLabel className="capitalize">{key}</FormLabel>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Array.isArray(options) &&
-                          options.map((option) => (
-                            <FormItem
-                              key={option.key}
-                              className="flex flex-row items-center space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  className="border-border"
-                                  checked={fieldValue.includes(option.key)}
-                                  onCheckedChange={(checked) => {
-                                    const newValue =
-                                      checked === true
-                                        ? [...fieldValue, option.key]
-                                        : fieldValue.filter(
-                                            (v) => v !== option.key
-                                          );
+              const renderGroup = (key: keyof typeof orderedFilters) => (
+                <FormField
+                  key={key}
+                  control={form.control}
+                  name={key as keyof FilterSchema}
+                  render={({ field }) => {
+                    const fieldValue = Array.isArray(field.value)
+                      ? field.value
+                      : [];
 
-                                    field.onChange(newValue);
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                {option.name}
-                              </FormLabel>
-                            </FormItem>
-                          ))}
-                      </div>
-                      <Separator />
-                    </FormItem>
-                  );
-                }}
-              />
-            ))}
+                    const options = orderedFilters[key] || [];
+
+                    return (
+                      <FormItem className="flex flex-col gap-2">
+                        <FormLabel className="capitalize">
+                          {labelMap[key]}
+                        </FormLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Array.isArray(options) &&
+                            options.map((option) => (
+                              <FormItem
+                                key={option.key}
+                                className="flex flex-row items-center space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    className="border-border"
+                                    checked={fieldValue.includes(option.key)}
+                                    onCheckedChange={(checked) => {
+                                      const newValue =
+                                        checked === true
+                                          ? [...fieldValue, option.key]
+                                          : fieldValue.filter(
+                                              (v) => v !== option.key
+                                            );
+
+                                      field.onChange(newValue);
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {option.name}
+                                </FormLabel>
+                              </FormItem>
+                            ))}
+                        </div>
+                        <Separator />
+                      </FormItem>
+                    );
+                  }}
+                />
+              );
+
+              return (
+                <React.Fragment>
+                  {renderGroup("categories")}
+                  {renderGroup("objectives")}
+                  {renderGroup("availability")}
+                </React.Fragment>
+              );
+            })()}
 
             <FormField
               control={form.control}
               name="budget"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel>Budget</FormLabel>
+                  <FormLabel>Rentang Harga</FormLabel>
                   <FormControl>
                     <RadioGroup
                       onValueChange={(label) => {
@@ -284,9 +331,81 @@ export function ProductFilterForm({
                       ))}
                     </RadioGroup>
                   </FormControl>
+                  {/* Garis pemisah setelah bagian Rentang Harga */}
+                  <Separator />
                 </FormItem>
               )}
             />
+
+            {(() => {
+              const labelMap: Record<string, string> = {
+                colors: "Nuansa Warna",
+                size: "Ukuran Bouquet",
+              };
+
+              const orderedFilters: Record<string, any[]> = {
+                colors: filters.colors || [],
+                size: size,
+              };
+
+              const renderGroup = (key: keyof typeof orderedFilters) => (
+                <FormField
+                  key={key}
+                  control={form.control}
+                  name={key as keyof FilterSchema}
+                  render={({ field }) => {
+                    const fieldValue = Array.isArray(field.value)
+                      ? field.value
+                      : [];
+                    const options = orderedFilters[key] || [];
+                    return (
+                      <FormItem className="flex flex-col gap-2">
+                        <FormLabel className="capitalize">
+                          {labelMap[key]}
+                        </FormLabel>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Array.isArray(options) &&
+                            options.map((option) => (
+                              <FormItem
+                                key={option.key}
+                                className="flex flex-row items-center space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    className="border-border"
+                                    checked={fieldValue.includes(option.key)}
+                                    onCheckedChange={(checked) => {
+                                      const newValue =
+                                        checked === true
+                                          ? [...fieldValue, option.key]
+                                          : fieldValue.filter(
+                                              (v) => v !== option.key
+                                            );
+                                      field.onChange(newValue);
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {option.name}
+                                </FormLabel>
+                              </FormItem>
+                            ))}
+                        </div>
+                        {/* Tampilkan garis pemisah kecuali pada bagian Ukuran Bouquet */}
+                        {key !== "size" && <Separator />}
+                      </FormItem>
+                    );
+                  }}
+                />
+              );
+
+              return (
+                <React.Fragment>
+                  {renderGroup("colors")}
+                  {renderGroup("size")}
+                </React.Fragment>
+              );
+            })()}
 
             <div className="flex items-center gap-4">
               <Button

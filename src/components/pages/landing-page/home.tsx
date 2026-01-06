@@ -8,6 +8,7 @@ import banner from "../../../../public/banner-1.png";
 import banner2 from "../../../../public/banner-2.png";
 import { popular, collection, socialMedia } from "@/data/static-data";
 import { cn } from "@/lib/utils";
+import { PopularProductsCarousel } from "@/features/products/components/popular-products-carousel";
 
 const CardCollection = ({
   name,
@@ -195,6 +196,13 @@ const Homepage = () => {
               />
             ))}
           </div>
+          {/* Popular Products preview carousel */}
+          <PopularProductsCarousel
+            title="Produk Populer"
+            limit={10}
+            seeAllHref="/products"
+            className="mt-6"
+          />
         </section>
 
         {/* CTA */}

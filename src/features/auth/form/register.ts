@@ -8,6 +8,13 @@ import {
 
 export const registerFormSchema = z
   .object({
+    username: z
+      .string()
+      .min(3, { message: "Username minimal 3 karakter" })
+      .max(50, { message: "Username maksimal 50 karakter" })
+      .regex(/^[a-zA-Z0-9_]+$/, {
+        message: "Username hanya boleh mengandung huruf, angka, dan underscore",
+      }),
     name: nameSchema,
     email: emailSchema,
     phone: phoneSchema,

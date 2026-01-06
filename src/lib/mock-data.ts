@@ -1,0 +1,42 @@
+export const mockCategories = [
+  {
+    id: "cat-1",
+    key: "bouquet",
+    name: "Bouquet",
+    description: "Rangkaian bunga segar yang indah dan elegan",
+    createdAt: "2025-01-01T00:00:00Z",
+    updatedAt: "2025-01-01T00:00:00Z",
+  },
+  {
+    id: "cat-2",
+    key: "standing-flower",
+    name: "Standing Flower",
+    description: "Karangan bunga berdiri untuk ucapan selamat atau dukacita",
+    createdAt: "2025-01-02T00:00:00Z",
+    updatedAt: "2025-01-02T00:00:00Z",
+  },
+  {
+    id: "cat-3",
+    key: "hand-bouquet",
+    name: "Hand Bouquet",
+    description: "Buket bunga tangan untuk berbagai acara spesial",
+    createdAt: "2025-01-03T00:00:00Z",
+    updatedAt: "2025-01-03T00:00:00Z",
+  },
+  {
+    id: "cat-4",
+    key: "flower-box",
+    name: "Flower Box",
+    description: "Bunga dalam box eksklusif dan mewah",
+    createdAt: "2025-01-04T00:00:00Z",
+    updatedAt: "2025-01-04T00:00:00Z",
+  },
+  {
+    id: "cat-5",
+    key: "graduation-flower",
+    name: "Graduation Flower",
+    description: "Bunga wisuda untuk merayakan kesuksesan",
+    createdAt: "2025-01-05T00:00:00Z",
+    updatedAt: "2025-01-05T00:00:00Z",
+  },
+];

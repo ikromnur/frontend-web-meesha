@@ -11,15 +11,15 @@ const NotFoundPage = () => {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center bg-white">
       <div className="max-w-md w-full space-y-6">
-        <div className="relative w-full h-64">
-          <Image
-            src="/404-illustration.svg"
-            alt="404 Illustration"
-            layout="fill"
-            objectFit="contain"
-            priority
-          />
-        </div>
+      <div className="relative w-full h-64">
+        <Image
+          src="/404-illustration.svg"
+          alt="404 Illustration"
+          fill
+          className="object-contain"
+          priority
+        />
+      </div>
         <h1 className="text-4xl font-bold tracking-tight text-gray-900">
           Oops! Page Not Found
         </h1>

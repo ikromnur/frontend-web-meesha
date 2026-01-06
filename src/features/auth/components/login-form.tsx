@@ -7,10 +7,9 @@ import {
 } from "@/components/ui/form";
 import { useFormContext } from "react-hook-form";
 import { Input } from "@/components/ui/input";
-import { LoginFormSchema } from "@/features/auth/form/login";
+import type { LoginFormSchema } from "@/features/auth/form/login";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { FaRegEyeSlash, FaRegEye } from "react-icons/fa";
 import Link from "next/link";
 
 type LoginFormProps = {
@@ -19,10 +18,8 @@ type LoginFormProps = {
 };
 
 const LoginForm = ({ onLogin, loginLoading }: LoginFormProps) => {
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword] = useState(false);
   const { control, handleSubmit } = useFormContext<LoginFormSchema>();
-
-  const handleShowPassword = () => setShowPassword((prev) => !prev);
 
   return (
     <form
@@ -37,7 +34,7 @@ const LoginForm = ({ onLogin, loginLoading }: LoginFormProps) => {
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input type="text" placeholder="Masukkan Email" {...field} />
+              <Input type="email" placeholder="Masukkan Email" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -58,28 +55,14 @@ const LoginForm = ({ onLogin, loginLoading }: LoginFormProps) => {
                   placeholder="Masukkan Password"
                   {...field}
                 />
-                <Button
-                  type="button"
-                  tabIndex={-1}
-                  variant="ghost"
-                  onClick={handleShowPassword}
-                  size="icon"
-                  className="absolute top-4 right-1 -translate-y-1/2 hover:bg-transparent"
-                  aria-label={
-                    showPassword ? "Sembunyikan Password" : "Tampilkan Password"
-                  }
-                >
-                  {showPassword ? (
-                    <FaRegEye className="text-secondary-foreground" />
-                  ) : (
-                    <FaRegEyeSlash className="text-secondary-foreground" />
-                  )}
-                </Button>
               </div>
             </FormControl>
             <FormMessage />
             <div className="mt-4 text-right">
-              <Link href="/forgot-password" className="text-sm mb-10">
+              <Link
+                href="/forgot-password"
+                className="text-sm mb-10 text-primary hover:underline"
+              >
                 Lupa Password?
               </Link>
             </div>

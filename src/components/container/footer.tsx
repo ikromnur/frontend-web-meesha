@@ -28,7 +28,7 @@ const footerData = [
     icon: <FiPhone size={20} />,
     title: "Hubungi kami melalui WhatsApp",
     paragraf: "Mon-Fri from 8am to 5pm.",
-    additional: "(+62) 812 1503 4540",
+    additional: "(+62) 877 3910 2801",
   },
   {
     icon: <IoLocationOutline size={20} />,

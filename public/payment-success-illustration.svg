@@ -1,0 +1,35 @@
+<svg width="360" height="260" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB7A8"/>
+      <stop offset="1" stop-color="#FFA395"/>
+    </linearGradient>
+  </defs>
+  <!-- confetti -->
+  <g stroke-width="6" stroke-linecap="round">
+    <path d="M40 40 l12 -6" stroke="#F4A261"/>
+    <path d="M80 30 l0 14" stroke="#2A9D8F"/>
+    <path d="M120 36 l-12 6" stroke="#E76F51"/>
+    <path d="M300 36 l-12 -6" stroke="#2A9D8F"/>
+    <path d="M260 30 l0 14" stroke="#F4A261"/>
+    <path d="M200 36 l12 6" stroke="#E76F51"/>
+  </g>
+
+  <!-- arms up -->
+  <path d="M95 70 C85 20 65 10 55 20 C45 30 60 70 70 90" stroke="url(#skin)" stroke-width="20" fill="none"/>
+  <path d="M265 70 C275 20 295 10 305 20 C315 30 300 70 290 90" stroke="url(#skin)" stroke-width="20" fill="none"/>
+
+  <!-- body -->
+  <rect x="105" y="90" width="150" height="110" rx="12" fill="#E7A9A9"/>
+  <rect x="140" y="180" width="80" height="30" rx="6" fill="#D98F8F"/>
+
+  <!-- head -->
+  <circle cx="180" cy="120" r="26" fill="url(#skin)"/>
+  <path d="M155 115 c0 -18 16 -32 25 -32 c18 0 34 12 34 32 c-8 8 -22 12 -34 12 c-12 0 -22 -4 -25 -12z" fill="#1F1F1F"/>
+  <circle cx="173" cy="122" r="3" fill="#1F1F1F"/>
+  <circle cx="187" cy="122" r="3" fill="#1F1F1F"/>
+  <path d="M172 130 q8 8 16 0" stroke="#D85B5B" stroke-width="3" fill="none"/>
+
+  <!-- decorative baseline -->
+  <rect x="60" y="228" width="240" height="2" fill="#BDBDBD"/>
+</svg>

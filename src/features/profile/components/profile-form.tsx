@@ -12,20 +12,41 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useFormContext } from "react-hook-form";
-import { ProfileFormValues } from "../form/profile";
-import { useRef, useState } from "react";
+import { ProfileFormData } from "../form/profile";
+import { useRef, useState, useEffect } from "react";
+import { toast } from "sonner";
+
+type ProfileFormProps = {
+  onSubmit: (data: ProfileFormData) => void;
+  existingPhoto?: string | null;
+  isLoading?: boolean;
+  onPhotoUpload?: (file: File) => void;
+  onPhotoDelete?: () => void;
+};
 
 const ProfileForm = ({
   onSubmit,
-}: {
-  onSubmit: (data: ProfileFormValues) => void;
-}) => {
+  existingPhoto,
+  isLoading = false,
+  onPhotoUpload,
+  onPhotoDelete,
+}: ProfileFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { control, handleSubmit, setValue } =
-    useFormContext<ProfileFormValues>();
+  const { control, handleSubmit, setValue } = useFormContext<ProfileFormData>();
 
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isDeleted, setIsDeleted] = useState(false);
+
+  // Set existing photo on mount
+  useEffect(() => {
+    if (existingPhoto && !profileImage) {
+      const photoUrl = existingPhoto.startsWith("http")
+        ? existingPhoto
+        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${existingPhoto}`;
+      setProfileImage(photoUrl);
+    }
+  }, [existingPhoto, profileImage]);
 
   const handleOpenFileDialog = () => {
     fileInputRef.current?.click();
@@ -34,15 +55,39 @@ const ProfileForm = ({
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validasi tipe & ukuran (max 2MB)
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+      const maxSize = 2 * 1024 * 1024; // 2MB
+
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Tipe file tidak valid. Hanya JPEG/PNG yang diizinkan.");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      if (file.size > maxSize) {
+        toast.error("Ukuran file melebihi 2MB.");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
       const imageURL = URL.createObjectURL(file);
       setProfileImage(imageURL);
       setValue("photo_profile", file);
+      setIsDeleted(false);
+      // Trigger upload langsung tanpa butuh tombol submit
+      if (onPhotoUpload) onPhotoUpload(file);
     }
   };
 
   const handleDeleteImage = () => {
     setProfileImage(null);
     setValue("photo_profile", null);
+    setIsDeleted(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (onPhotoDelete) onPhotoDelete();
   };
 
   return (
@@ -52,8 +97,8 @@ const ProfileForm = ({
 
         <div className="flex md:flex-row gap-10 mb-8 items-center">
           {/* Profile Image */}
-          <div className="w-40 h-40 rounded-full bg-gray-100 shadow-sm overflow-hidden flex items-center justify-center text-gray-400 text-4xl">
-            {profileImage ? (
+          <div className="w-40 h-40 rounded-full bg-gray-100 shadow-sm overflow-hidden flex items-center justify-center text-gray-400 text-4xl border-2 border-gray-200">
+            {profileImage && !isDeleted ? (
               <Image
                 width={160}
                 height={160}
@@ -67,8 +112,13 @@ const ProfileForm = ({
           </div>
 
           <div className="flex items-center gap-4 flex-col md:flex-row justify-center md:justify-start">
-            <Button type="button" size="lg" onClick={handleOpenFileDialog}>
-              Change Picture
+            <Button
+              type="button"
+              size="lg"
+              onClick={handleOpenFileDialog}
+              disabled={isLoading}
+            >
+            {profileImage && !isDeleted ? "Ganti Foto" : "Unggah Foto"}
             </Button>
             <input
               type="file"
@@ -77,15 +127,18 @@ const ProfileForm = ({
               ref={fileInputRef}
               onChange={handleImageUpload}
             />
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              onClick={handleDeleteImage}
-            >
-              <Trash2 className="mr-2 w-4 h-4" />
-              Delete Picture
-            </Button>
+            {(profileImage || existingPhoto) && !isDeleted && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                onClick={handleDeleteImage}
+                disabled={isLoading}
+              >
+                <Trash2 className="mr-2 w-4 h-4" />
+            Hapus Foto
+              </Button>
+            )}
           </div>
         </div>
 
@@ -97,7 +150,7 @@ const ProfileForm = ({
               <FormItem>
                 <FormLabel>Username</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -110,7 +163,7 @@ const ProfileForm = ({
               <FormItem>
                 <FormLabel>Nama Lengkap</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -123,7 +176,7 @@ const ProfileForm = ({
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <Input type="email" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -131,12 +184,12 @@ const ProfileForm = ({
           />
           <FormField
             control={control}
-            name="nohp"
+            name="phone"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Nomor HP</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -145,8 +198,8 @@ const ProfileForm = ({
         </div>
 
         <div className="flex items-center justify-end">
-          <Button type="submit" size="lg" className="mt-4">
-            Simpan Perubahan
+          <Button type="submit" size="lg" className="mt-4" disabled={isLoading}>
+            {isLoading ? "Menyimpan..." : "Simpan Perubahan"}
           </Button>
         </div>
       </div>

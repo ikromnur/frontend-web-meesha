@@ -11,3 +11,5 @@ export default function Dashboard() {
 
   return <p>Selamat datang di dashboard, Admin!</p>;
 }
+
+

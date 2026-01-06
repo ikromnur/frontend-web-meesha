@@ -5,16 +5,18 @@ import { Trash2 } from "lucide-react";
 import Image, { StaticImageData } from "next/image";
 import { formatRupiah } from "@/helper/format-rupiah";
 import { Badge } from "@/components/ui/badge";
+import { Availability } from "@/types/product";
 
 interface CartItemProps {
   image: string | StaticImageData;
   title: string;
   price: number;
-  id: number;
+  id: string;
   quantity: number;
   size: string;
-  deleteCart?: (id: number) => void;
-  handleChangeQuantity?: (id: number, quantity: number) => void;
+  availability?: Availability | string;
+  deleteCart?: (id: string) => void;
+  handleChangeQuantity?: (id: string, quantity: number) => void;
   variant?: "cart" | "checkout";
 }
 
@@ -28,6 +30,7 @@ export function CartItem({
   deleteCart,
   handleChangeQuantity,
   variant = "cart",
+  availability,
 }: CartItemProps) {
   return (
     <div className="flex gap-4 items-start">
@@ -56,6 +59,27 @@ export function CartItem({
           >
             <h4 className="font-medium text-base">{title}</h4>
             <Badge variant={"outline"}>{size}</Badge>
+            {availability && (
+              <Badge
+                className={
+                  availability === Availability.READY
+                    ? "bg-green-600 text-white"
+                    : availability === Availability.PO_2_DAY
+                    ? "bg-yellow-500 text-black"
+                    : availability === Availability.PO_5_DAY
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-300 text-gray-900"
+                }
+              >
+                {availability === Availability.READY
+                  ? "Ready di toko"
+                  : availability === Availability.PO_2_DAY
+                  ? "Pre-Order 2 hari"
+                  : availability === Availability.PO_5_DAY
+                  ? "PO 5 hari"
+                  : String(availability)}
+              </Badge>
+            )}
           </div>
 
           {variant === "cart" && (
@@ -70,7 +94,9 @@ export function CartItem({
         </div>
 
         <div className="flex items-center gap-4 mt-2 justify-between">
-          <p className={`font-semibold ${variant === "checkout" && "order-2"}`}>{formatRupiah(price)}</p>
+          <p className={`font-semibold ${variant === "checkout" && "order-2"}`}>
+            {formatRupiah(price)}
+          </p>
 
           {variant === "cart" ? (
             <div className="flex items-center border rounded-md overflow-hidden">

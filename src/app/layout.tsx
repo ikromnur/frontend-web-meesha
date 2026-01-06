@@ -1,18 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import Providers from "@/providers";
-
-const interSans = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const poppins = Poppins({
-  variable: "--font-poppins",
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-});
+import NextTopLoader from "nextjs-toploader";
+import "nprogress/nprogress.css";
 
 export const metadata: Metadata = {
   title: {
@@ -33,8 +23,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${interSans.variable} ${poppins.variable} antialiased font-poppins`}
+        className="antialiased font-poppins"
       >
+        <NextTopLoader
+          color="#E76F51"
+          initialPosition={0.2}
+          crawlSpeed={300}
+          height={3}
+          crawl
+          showSpinner={false}
+          easing="ease"
+          speed={500}
+        />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -12,6 +12,8 @@ import {
   MessageCircleMore,
   Settings,
   LogOut,
+  User,
+  Star,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,19 +33,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronRight, type LucideIcon } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { type LucideIcon } from "lucide-react";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import { useSession, signOut } from "next-auth/react";
 
@@ -52,24 +46,11 @@ const menuAtas = [
 ];
 
 const menuTengah = [
-  {
-    title: "Produk",
-    url: "#",
-    icon: Flower,
-    items: [
-      {
-        title: "Daftar Kategori",
-        url: "/dashboard/products/category",
-      },
-      {
-        title: "Daftar Produk",
-        url: "/dashboard/products",
-      },
-    ],
-  },
+  { title: "Produk", url: "/dashboard/products", icon: Flower },
   { title: "Pesanan", url: "/dashboard/orders", icon: BookOpenCheck },
   { title: "Diskon", url: "/dashboard/discount", icon: BadgePercent },
-  { title: "Pesan", url: "/dashboard/message", icon: MessageCircleMore },
+  { title: "Pesan", url: "/dashboard/messages", icon: MessageCircleMore },
+  { title: "Penilaian", url: "/dashboard/ratings", icon: Star },
 ];
 
 export function NavMain({
@@ -80,7 +61,6 @@ export function NavMain({
     url: string;
     icon: LucideIcon;
     isActive?: boolean;
-    items?: { title: string; url: string }[];
   }[];
 }) {
   const router = useRouter();
@@ -89,51 +69,24 @@ export function NavMain({
   return (
     <SidebarMenu>
       {items.map((item) => {
-        const isActive = pathname === item.url;
+        const isActive =
+          pathname === item.url || pathname.startsWith(item.url + "/");
 
         return (
-          <Collapsible
-            key={item.title}
-            asChild
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger asChild>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  onClick={() => router.push(item.url)}
-                  className={`${
-                    isActive
-                      ? "bg-pink-200 text-pink-600 font-semibold"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                  {item.items && (
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  )}
-                </SidebarMenuButton>
-              </CollapsibleTrigger>
-
-              {item.items && (
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <button onClick={() => router.push(subItem.url)}>
-                            <span>{subItem.title}</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              )}
-            </SidebarMenuItem>
-          </Collapsible>
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              tooltip={item.title}
+              onClick={() => router.push(item.url)}
+              className={`${
+                isActive
+                  ? "bg-pink-200 text-pink-600 font-semibold"
+                  : "text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              {item.icon && <item.icon />}
+              <span>{item.title}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         );
       })}
     </SidebarMenu>
@@ -213,7 +166,13 @@ export function SidebarAdmin({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push("/dashboard/pengaturan")}
+                onClick={() => router.push("/dashboard/profile")}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push("/dashboard/settings")}
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Pengaturan

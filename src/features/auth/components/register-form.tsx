@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { RegisterFormSchema } from "@/features/auth/form/register";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { FaRegEyeSlash, FaRegEye } from "react-icons/fa";
+
 
 type RegisterFormProps = {
   onRegister: (data: RegisterFormSchema) => void;
@@ -18,17 +18,29 @@ type RegisterFormProps = {
 };
 
 const RegisterForm = ({ onRegister, registerLoading }: RegisterFormProps) => {
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword] = useState(false);
 
   const { control, handleSubmit } = useFormContext<RegisterFormSchema>();
-
-  const handleShowPassword = () => setShowPassword((prev) => !prev);
 
   return (
     <form
       onSubmit={handleSubmit(onRegister)}
       className="flex flex-col gap-2 w-full max-w-sm md:max-w-72 lg:max-w-96"
     >
+      <FormField
+        control={control}
+        name="username"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Username</FormLabel>
+            <FormControl>
+              <Input type="text" placeholder="Username" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
       <FormField
         control={control}
         name="name"
@@ -65,7 +77,7 @@ const RegisterForm = ({ onRegister, registerLoading }: RegisterFormProps) => {
             <FormLabel>Nomor Ponsel</FormLabel>
             <FormControl>
               <Input
-                type="text"
+                type="tel"
                 placeholder="Nomor Ponsel WhatsApp"
                 {...field}
               />
@@ -88,23 +100,6 @@ const RegisterForm = ({ onRegister, registerLoading }: RegisterFormProps) => {
                   placeholder="Masukkan Password"
                   {...field}
                 />
-                <Button
-                  type="button"
-                  tabIndex={-1}
-                  variant="ghost"
-                  onClick={handleShowPassword}
-                  size="icon"
-                  className="absolute top-1/2 right-1 -translate-y-1/2 hover:bg-transparent"
-                  aria-label={
-                    showPassword ? "Sembunyikan Password" : "Tampilkan Password"
-                  }
-                >
-                  {showPassword ? (
-                    <FaRegEye className="text-secondary-foreground" />
-                  ) : (
-                    <FaRegEyeSlash className="text-secondary-foreground" />
-                  )}
-                </Button>
               </div>
             </FormControl>
             <FormMessage />
@@ -125,23 +120,6 @@ const RegisterForm = ({ onRegister, registerLoading }: RegisterFormProps) => {
                   placeholder="Konfirmasi Password"
                   {...field}
                 />
-                <Button
-                  type="button"
-                  tabIndex={-1}
-                  variant="ghost"
-                  onClick={handleShowPassword}
-                  size="icon"
-                  className="absolute top-1/2 right-1 -translate-y-1/2 hover:bg-transparent"
-                  aria-label={
-                    showPassword ? "Sembunyikan Password" : "Tampilkan Password"
-                  }
-                >
-                  {showPassword ? (
-                    <FaRegEye className="text-secondary-foreground" />
-                  ) : (
-                    <FaRegEyeSlash className="text-secondary-foreground" />
-                  )}
-                </Button>
               </div>
             </FormControl>
             <FormMessage />
