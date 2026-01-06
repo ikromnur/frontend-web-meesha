@@ -83,6 +83,46 @@ const DiscountPage = () => {
     return formatRupiah(value);
   };
 
+  const getStatus = (discount: Discount) => {
+    const now = Date.now();
+    const end = discount.endDateMs ?? discount.endDate ?? discount.endTime;
+    let isExpiredDate = false;
+
+    if (end) {
+      // Handle both number (timestamp) and string formats
+      const d = new Date(
+        typeof end === "number" && end < 1e12 ? end * 1000 : end
+      );
+      if (!isNaN(d.getTime()) && d.getTime() < now) {
+        isExpiredDate = true;
+      }
+    }
+
+    if (String(discount.status).toUpperCase() === "EXPIRED" || isExpiredDate) {
+      return "EXPIRED";
+    }
+    return String(discount.status).toUpperCase();
+  };
+
+  const renderStatusBadge = (discount: Discount) => {
+    const status = getStatus(discount);
+    let label = status;
+    let className = "bg-gray-100 text-gray-800 hover:bg-gray-100"; // default/expired
+
+    if (status === "ACTIVE") {
+      label = "Aktif";
+      className = "bg-green-100 text-green-800 hover:bg-green-100";
+    } else if (status === "EXPIRED") {
+      label = "Expired";
+      className = "bg-red-100 text-red-800 hover:bg-red-100";
+    } else {
+      // Fallback for other statuses
+      className = "bg-yellow-100 text-yellow-800 hover:bg-yellow-100";
+    }
+
+    return <Badge className={className}>{label}</Badge>;
+  };
+
   return (
     <div>
       <ConfirmationDialog />
@@ -212,22 +252,7 @@ const DiscountPage = () => {
                             discount.endTime
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn(
-                            discount.status === "Aktif" &&
-                              "bg-green-100 text-green-800 hover:bg-green-100",
-                            discount.status === "Expired" &&
-                              "bg-gray-100 text-gray-800 hover:bg-gray-100"
-                          )}
-                        >
-                          {discount.status === "ACTIVE"
-                            ? "Aktif"
-                            : discount.status === "EXPIRED"
-                            ? "Expired"
-                            : discount.status}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>{renderStatusBadge(discount)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button

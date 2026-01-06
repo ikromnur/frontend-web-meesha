@@ -20,13 +20,13 @@ export const useDeleteDiscount = () => {
       });
     },
     onError: (error: any) => {
+      // Prioritize error message from response data (backend)
+      const backendMessage = error?.response?.data?.message;
       const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Gagal menghapus kode diskon.";
-        
+        backendMessage || error?.message || "Gagal menghapus kode diskon.";
+
       toast({
-        title: "Error!",
+        title: "Gagal Menghapus",
         description: message,
         variant: "destructive",
       });
