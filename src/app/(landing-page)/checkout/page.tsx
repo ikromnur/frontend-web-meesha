@@ -458,46 +458,49 @@ export default function CheckoutPage() {
     }
   }
 
-  async function fetchStatus(silent = false) {
-    if (!merchantRef) return;
-    try {
-      if (!silent) setIsRefreshing(true);
-      const url = `/api/payments/tripay/transaction/${encodeURIComponent(
-        merchantRef
-      )}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.data)
-        throw new Error(
-          json?.message || `Gagal memuat status (HTTP ${res.status})`
+  const fetchStatus = useCallback(
+    async (silent = false) => {
+      if (!merchantRef) return;
+      try {
+        if (!silent) setIsRefreshing(true);
+        const url = `/api/payments/tripay/transaction/${encodeURIComponent(
+          merchantRef
+        )}`;
+        const res = await fetch(url, { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.data)
+          throw new Error(
+            json?.message || `Gagal memuat status (HTTP ${res.status})`
+          );
+        const d = json.data;
+        setTransactionData((prev: any) => ({ ...prev, ...d }));
+        setPaymentInstructions(
+          Array.isArray(d?.instructions) ? d.instructions : []
         );
-      const d = json.data;
-      setTransactionData((prev: any) => ({ ...prev, ...d }));
-      setPaymentInstructions(
-        Array.isArray(d?.instructions) ? d.instructions : []
-      );
-      setLastUpdatedAt(Date.now());
-      // perbarui countdown berdasarkan expired_time yang baru
-      if (d?.expired_time) {
-        const expMs = Number(d.expired_time) * 1000;
-        setRemainingMs(Math.max(expMs - Date.now(), 0));
+        setLastUpdatedAt(Date.now());
+        // perbarui countdown berdasarkan expired_time yang baru
+        if (d?.expired_time) {
+          const expMs = Number(d.expired_time) * 1000;
+          setRemainingMs(Math.max(expMs - Date.now(), 0));
+        }
+        // hentikan auto refresh jika status sudah final
+        if (shouldStopPolling(d?.status)) {
+          setAutoRefresh(false);
+        }
+      } catch (e: any) {
+        if (!silent) {
+          toast({
+            title: "Gagal refresh",
+            description: e?.message ?? String(e),
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!silent) setIsRefreshing(false);
       }
-      // hentikan auto refresh jika status sudah final
-      if (shouldStopPolling(d?.status)) {
-        setAutoRefresh(false);
-      }
-    } catch (e: any) {
-      if (!silent) {
-        toast({
-          title: "Gagal refresh",
-          description: e?.message ?? String(e),
-          variant: "destructive",
-        });
-      }
-    } finally {
-      if (!silent) setIsRefreshing(false);
-    }
-  }
+    },
+    [merchantRef, toast]
+  );
 
   async function handleContinue(selectedCode: string) {
     try {

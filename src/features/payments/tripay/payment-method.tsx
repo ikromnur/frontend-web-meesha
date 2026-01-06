@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTripayChannels, TripayChannel } from "./use-tripay-channels";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,7 +34,7 @@ export function PaymentMethod({
     setTripayLoading(isLoading);
   }, [isLoading]);
 
-  const channels: TripayChannel[] = data?.data ?? [];
+  const channels: TripayChannel[] = useMemo(() => data?.data ?? [], [data]);
 
   // Auto-pilih metode: pulihkan dari sessionStorage atau ambil channel pertama
   useEffect(() => {
