@@ -25,9 +25,14 @@ const statusLabels: Record<OrderStatus | "all", string> = {
   pending: "Pending",
   unpaid: "Belum Dibayar",
   processing: "Proses",
+  paid: "Sudah Dibayar",
+  success: "Pembayaran Sukses",
   ambil: "Siap Ambil",
+  ready_for_pickup: "Siap Ambil",
   completed: "Selesai",
   cancelled: "Dibatalkan",
+  failed: "Pembayaran Gagal",
+  expired: "Kadaluarsa",
 };
 
 export default function DashboardHomePage() {
