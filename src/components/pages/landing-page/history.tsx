@@ -108,7 +108,7 @@ const HistoryPage = () => {
 
   return (
     <div className="relative w-full max-w-screen-xl mx-auto px-4 pt-6">
-      <h1 className="font-medium text-2xl mb-8">Order History</h1>
+      <h1 className="font-medium text-2xl mb-8">Riwayat Order</h1>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
@@ -139,24 +139,10 @@ const HistoryPage = () => {
                 className="flex flex-col gap-5 min-h-[300px]"
               >
                 {isTabEmpty ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg">
-                    <div className="text-4xl mb-3">📦</div>
-                    <h3 className="text-lg font-medium mb-1">
+                  <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+                    <p>
                       Tidak ada pesanan dengan status {tab.label.toLowerCase()}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {tab.value === "pending"
-                        ? "Anda tidak memiliki pesanan yang menunggu pembayaran"
-                        : `Belum ada riwayat pesanan di status ${tab.label}`}
                     </p>
-                    {orders.length === 0 && tab.value === "pending" && (
-                      <Button
-                        onClick={() => router.push("/products")}
-                        variant="outline"
-                      >
-                        Mulai Belanja
-                      </Button>
-                    )}
                   </div>
                 ) : (
                   filteredOrders.map((order) => (
