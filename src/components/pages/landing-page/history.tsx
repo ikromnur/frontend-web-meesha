@@ -142,7 +142,7 @@ const HistoryPage = () => {
                   <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-lg">
                     <div className="text-4xl mb-3">📦</div>
                     <h3 className="text-lg font-medium mb-1">
-                      Tidak ada pesanan {tab.label.toLowerCase()}
+                      Tidak ada pesanan dengan status {tab.label.toLowerCase()}
                     </h3>
                     <p className="text-sm text-muted-foreground mb-4">
                       {tab.value === "pending"

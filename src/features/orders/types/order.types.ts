@@ -2,9 +2,14 @@ export type OrderStatus =
   | "pending"
   | "unpaid" // Status baru untuk order yang belum dibayar
   | "processing"
+  | "paid"
+  | "success"
   | "ambil" // READY_FOR_PICKUP (frontend alias)
+  | "ready_for_pickup"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "failed"
+  | "expired";
 
 export interface ProductRating {
   id: number;
