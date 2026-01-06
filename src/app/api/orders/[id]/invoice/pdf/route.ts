@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Alias route: /api/orders/:id/invoice/pdf → redirect ke /api/orders/:id/invoice/download
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {

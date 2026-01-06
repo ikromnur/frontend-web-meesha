@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+export const dynamic = "force-dynamic";
+
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL;
 

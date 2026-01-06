@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // Proxy endpoint untuk menerima POST callback dari Tripay
 // Konfigurasikan URL callback di Dashboard Tripay ke
 //   https://<domain-frontend>/api/payments/tripay/callback
