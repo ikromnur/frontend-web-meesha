@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "@/lib/axios";
+import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 
 export const useDeleteDiscount = () => {
@@ -8,7 +8,9 @@ export const useDeleteDiscount = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await axiosInstance.delete(`/discounts/${id}`);
+      // Gunakan internal API route (proxy) untuk menghindari masalah CORS
+      // dan memastikan error handling yang lebih baik.
+      await axios.delete(`/api/discounts/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["discounts"] });
@@ -17,10 +19,15 @@ export const useDeleteDiscount = () => {
         description: "Kode diskon telah berhasil dihapus.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Gagal menghapus kode diskon.";
+        
       toast({
         title: "Error!",
-        description: error.message || "Gagal menghapus kode diskon.",
+        description: message,
         variant: "destructive",
       });
     },
