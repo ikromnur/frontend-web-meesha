@@ -97,7 +97,19 @@ const authHandler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // ------------------------------
+      // TAMBAHAN: Handle update session dari client (updateSession)
+      // ------------------------------
+      if (trigger === "update" && session?.user) {
+        if (session.user.image !== undefined) token.image = session.user.image;
+        if (session.user.name !== undefined) token.name = session.user.name;
+        if (session.user.username !== undefined)
+          token.username = session.user.username;
+        if (session.user.phone !== undefined) token.phone = session.user.phone;
+      }
+
+      // Logika awal (tetap dipertahankan)
       if (user) {
         token.accessToken = user.token;
         token.role = user.role;
@@ -126,7 +138,11 @@ const authHandler = NextAuth({
         }
         // Sinkronkan nama lengkap ke sesi; fallback ke username jika perlu
         // @ts-ignore - token.name ada di JWT default
-        session.user.name = (token as any).name ?? session.user.name ?? token.username ?? null;
+        session.user.name =
+          (token as any).name ??
+          session.user.name ??
+          token.username ??
+          null;
       }
 
       session.accessToken = token.accessToken;
