@@ -7,11 +7,15 @@ WORKDIR /app
 # Salin file package.json dan package-lock.json
 COPY package*.json ./
 
-# Install dependensi
-RUN npm ci
+# Gunakan npm install (lebih aman daripada ci jika lockfile berubah)
+RUN npm install
 
 # Salin seluruh kode source
 COPY . .
+
+# Argument build time untuk Next.js Public Env
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 # Build aplikasi Next.js
 RUN npm run build

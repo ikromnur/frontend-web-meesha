@@ -1,18 +1,16 @@
-version: '3.8'
-
 services:
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: https://meesha.store
+    image: meesha-frontend:latest
     container_name: meesha-frontend
     ports:
       - "3000:3000"
     environment:
-      # Ganti URL ini dengan URL Backend Anda (bisa domain VPS atau IP)
       - NEXT_PUBLIC_BACKEND_URL=https://meesha.store
-      # URL aplikasi frontend ini
       - NEXTAUTH_URL=https://meesha.store
-      # Secret untuk NextAuth (harus sama dengan di .env lokal)
-      - NEXTAUTH_SECRET=ganti_dengan_secret_yang_sama
+      - NEXTAUTH_SECRET=rahasia_meesha_store_123
     restart: always
