@@ -21,12 +21,13 @@ function getCandidatePaths(): string[] {
   if (pathEnv) {
     return [pathEnv];
   }
+  // Prioritaskan endpoint utama yang telah diperbaiki di backend
   return [
+    "/api/orders",
+    "/orders",
     "/api/user/orders",
     "/orders/me",
     "/user/orders",
-    "/api/orders",
-    "/orders",
   ];
 }
 

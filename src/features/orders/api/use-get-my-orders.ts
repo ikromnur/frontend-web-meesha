@@ -58,8 +58,11 @@ export const useGetMyOrders = ({
     },
     enabled,
     retry: false,
-    refetchOnWindowFocus: false,
-    refetchInterval: 60000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
   });
 
   // Tampilkan toast error untuk kasus selain 404/405
