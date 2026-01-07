@@ -12,5 +12,5 @@ services:
     environment:
       - NEXT_PUBLIC_BACKEND_URL=https://meesha.store
       - NEXTAUTH_URL=https://meesha.store
-      - NEXTAUTH_SECRET=rahasia_meesha_store_123
+      - NEXTAUTH_SECRET=cnrIbQ6ls8q51y_8ZOAQNl3up4wDewWwDZgnohXtr48
     restart: always
