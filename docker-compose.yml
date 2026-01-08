@@ -4,20 +4,21 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_BACKEND_URL: http://76.13.16.97:4000
+        NEXT_PUBLIC_BACKEND_URL: /api
     image: meesha-frontend:v6
     container_name: meesha-frontend
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://76.13.16.97:4000
-      - INTERNAL_BACKEND_URL=http://meesha-backend:4000
-      - NEXTAUTH_URL=http://meesha.store
+      - NEXT_PUBLIC_BACKEND_URL=/api
+      - NEXTAUTH_URL=https://meesha.store
       - NEXTAUTH_SECRET=cnrIbQ6ls8q51y_8ZOAQNl3up4wDewWwDZgnohXtr48
+      - INTERNAL_BACKEND_URL=http://meesha-backend:4000
     restart: always
     networks:
       - meesha-net
 
 networks:
   meesha-net:
-    external: true
+    name: meesha-net
+    driver: bridge
