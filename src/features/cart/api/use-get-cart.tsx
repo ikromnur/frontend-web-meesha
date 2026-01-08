@@ -31,7 +31,7 @@ export const UseGetCart = (params?: UseGetCartProps) => {
           ? d.data.data
           : [];
 
-        // Map into Cart items with safe numeric values and image resolution
+        // Masukkan item ke dalam Keranjang dengan nilai numerik yang aman dan resolusi gambar.
         const normalizeSize = (val: any): Size => {
           const s = String(val ?? "")
             .toLowerCase()
@@ -54,7 +54,7 @@ export const UseGetCart = (params?: UseGetCartProps) => {
           if (s === Availability.READY) return Availability.READY;
           if (s === Availability.PO_2_DAY) return Availability.PO_2_DAY;
           if (s === Availability.PO_5_DAY) return Availability.PO_5_DAY;
-          // Fallback with heuristics
+          // Alternatif dengan heuristik
           const compact = s.replace(/[^A-Z0-9+]/g, "");
           if (
             (compact.includes("PO") || compact.includes("PREORDER")) &&
@@ -73,15 +73,28 @@ export const UseGetCart = (params?: UseGetCartProps) => {
         };
 
         const items: Cart[] = (rawItems as any[]).map((item) => {
-          const qty = Number(item?.quantity ?? 0) || 0;
-          const price =
-            Number(
-              item?.unitPrice ??
-                item?.price ??
-                item?.product?.unitPrice ??
-                item?.product?.price ??
-                0
-            ) || 0;
+          const toNumber = (val: any): number => {
+            if (val == null) return 0;
+            if (typeof val === "number") {
+              const n = Number(val);
+              return isFinite(n) ? n : 0;
+            }
+            if (typeof val === "string") {
+              const cleaned = val.replace(/[^\d.]/g, "");
+              const n = parseFloat(cleaned);
+              return isFinite(n) ? n : 0;
+            }
+            const n = Number(val);
+            return isFinite(n) ? n : 0;
+          };
+          const qty = toNumber(item?.quantity ?? 0);
+          const price = toNumber(
+            item?.unitPrice ??
+              item?.price ??
+              item?.product?.unitPrice ??
+              item?.product?.price ??
+              0
+          );
           const imageCandidate =
             item?.image ??
             item?.imageUrl?.[0]?.url ??
