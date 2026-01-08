@@ -1,7 +1,7 @@
 import { axiosInstance } from "@/lib/axios";
 import { useQuery } from "@tanstack/react-query";
 import { Availability } from "@/types/product";
-import { Cart } from "@/types/cart";
+import { Cart, Size } from "@/types/cart";
 
 interface UseGetCartProps {
   onError?: (e: Error) => void;
@@ -13,7 +13,8 @@ export const UseGetCart = (params?: UseGetCartProps) => {
   return useQuery({
     queryFn: async () => {
       try {
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const origin =
+          typeof window !== "undefined" ? window.location.origin : "";
         const url = `${origin}/api/carts`;
         const { data } = await axiosInstance.get(url);
         // Normalize response: accept either an array or an object containing an array
@@ -31,6 +32,23 @@ export const UseGetCart = (params?: UseGetCartProps) => {
           : [];
 
         // Map into Cart items with safe numeric values and image resolution
+        const normalizeSize = (val: any): Size => {
+          const s = String(val ?? "")
+            .toLowerCase()
+            .trim();
+          if (s === "s" || s === "small") return Size.SMALL;
+          if (s === "m" || s === "medium") return Size.MEDIUM;
+          if (s === "l" || s === "large") return Size.LARGE;
+          if (
+            s === "xl" ||
+            s === "extra large" ||
+            s === "extra_large" ||
+            s === "extra-large"
+          )
+            return Size.EXTRA_LARGE;
+          return Size.SMALL;
+        };
+
         const items: Cart[] = (rawItems as any[]).map((item) => {
           const qty = Number(item?.quantity ?? 0) || 0;
           const price =
@@ -39,7 +57,7 @@ export const UseGetCart = (params?: UseGetCartProps) => {
                 item?.price ??
                 item?.product?.unitPrice ??
                 item?.product?.price ??
-                0,
+                0
             ) || 0;
           const imageCandidate =
             item?.image ??
@@ -62,7 +80,7 @@ export const UseGetCart = (params?: UseGetCartProps) => {
             image: imageCandidate || "",
             price,
             quantity: qty,
-            size: String(item?.size ?? item?.product?.size ?? "S"),
+            size: normalizeSize(item?.size ?? item?.product?.size ?? "S"),
             availability,
           };
         });
