@@ -29,8 +29,12 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    // Prioritaskan internal backend URL untuk komunikasi server-to-server (Docker)
     const backend =
-      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+      process.env.INTERNAL_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      "http://localhost:4000";
+
     return [
       {
         source: "/api/payments/tripay/:path*",
@@ -40,6 +44,11 @@ const nextConfig = {
       {
         source: "/api/v1/:path*",
         destination: `${backend}/api/v1/:path*`,
+      },
+      // Notifications (assuming v1)
+      {
+        source: "/api/notifications/:path*",
+        destination: `${backend}/api/v1/notifications/:path*`,
       },
       // Biarkan /api/orders ditangani oleh API Route Next (`src/app/api/orders/route.ts`)
     ];

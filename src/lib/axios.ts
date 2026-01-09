@@ -13,7 +13,9 @@ import NProgress from "nprogress";
 // dikirim, interceptor akan menambahkan prefix `/api` sehingga
 // `http://localhost:4000` + `/api/products`.
 // Pastikan NEXT_PUBLIC_BACKEND_URL diset ke contoh: http://localhost:4000
-const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+// FIX: Default ke string kosong agar menggunakan relative path (via Next.js Proxy)
+// Ini mencegah CORS error karena request akan melalui same-origin (localhost:3000)
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
 export const axiosInstance = axios.create({
   baseURL,

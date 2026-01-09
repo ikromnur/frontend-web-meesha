@@ -4,6 +4,7 @@ import { getToken } from "next-auth/jwt";
 export const dynamic = "force-dynamic";
 
 const BACKEND_URL =
+  process.env.INTERNAL_BACKEND_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.BACKEND_URL ||
   "http://localhost:4000";
@@ -15,6 +16,9 @@ export async function GET(request: NextRequest) {
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
     });
+    // Jika tidak ada token, jangan return 401 dulu, mungkin user guest (tergantung logic backend).
+    // Tapi jika logic backend butuh auth, 401 oke.
+    // Asumsi: cart butuh auth.
     if (!token?.accessToken) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
@@ -22,7 +26,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/carts`, {
+    // FIX: Gunakan endpoint v1
+    const response = await fetch(`${BACKEND_URL}/api/v1/carts`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

@@ -13,10 +13,11 @@ export const UseGetCart = (params?: UseGetCartProps) => {
   return useQuery({
     queryFn: async () => {
       try {
-        const origin =
-          typeof window !== "undefined" ? window.location.origin : "";
-        const url = `${origin}/api/carts`;
-        const { data } = await axiosInstance.get(url);
+        // FIX: Gunakan relative path dan override baseURL agar request mengarah ke Next.js API Route, bukan backend langsung
+        const { data } = await axiosInstance.get("/api/carts", {
+          baseURL: "", // Override default baseURL (localhost:4000) agar menjadi relative request
+        });
+        
         // Normalisasi respons: terima baik berupa array atau objek yang berisi array
         const d: any = data;
         const rawItems = Array.isArray(d)
