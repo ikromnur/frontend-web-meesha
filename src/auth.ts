@@ -5,6 +5,7 @@ import axios from "axios";
 const authHandler = NextAuth({
   pages: {
     signIn: "/login",
+    error: "/login", // Redirect errors back to the login page
   },
   providers: [
     CredentialsProvider({
@@ -47,7 +48,7 @@ const authHandler = NextAuth({
           console.error("Authorize error:", error);
           // Propagate the error message to the client
           throw new Error(
-            error.message || "Terjadi masalah saat menghubungi server.",
+            error.message || "Terjadi masalah saat menghubungi server."
           );
         }
       },
@@ -96,10 +97,7 @@ const authHandler = NextAuth({
         // Sinkronkan nama lengkap ke sesi; fallback ke username jika perlu
         // @ts-ignore - token.name ada di JWT default
         session.user.name =
-          (token as any).name ??
-          session.user.name ??
-          token.username ??
-          null;
+          (token as any).name ?? session.user.name ?? token.username ?? null;
       }
 
       session.accessToken = token.accessToken;
