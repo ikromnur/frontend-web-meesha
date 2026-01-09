@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       quantity: (body as any)?.quantity ?? 1,
       ...(body?.size ? { size: body.size } : {}),
     };
-    const response = await fetch(`${BACKEND_URL}/api/carts`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/carts`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
