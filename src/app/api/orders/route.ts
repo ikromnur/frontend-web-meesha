@@ -22,14 +22,8 @@ function getCandidatePaths(): string[] {
     return [pathEnv];
   }
   // Prioritaskan endpoint utama yang telah diperbaiki di backend
-  return [
-    "/api/v1/orders", // FIX: Prioritize v1 endpoint
-    "/api/orders",
-    "/orders",
-    "/api/user/orders",
-    "/orders/me",
-    "/user/orders",
-  ];
+  // Karena backend sudah fix menggunakan /api/v1, kita tidak perlu mencoba path lain.
+  return ["/api/v1/orders"];
 }
 
 export async function GET(request: NextRequest) {

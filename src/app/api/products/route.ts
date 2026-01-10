@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Build query string from search params
     const queryString = searchParams.toString();
-    const url = `${BACKEND_URL}/api/products${
+    const url = `${BACKEND_URL}/api/v1/products${
       queryString ? `?${queryString}` : ""
     }`;
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
     const formData = await request.formData();
 
-    const response = await fetch(`${BACKEND_URL}/api/products`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/products`, {
       method: "POST",
       headers: {
         // Let fetch set multipart boundaries automatically; only forward auth

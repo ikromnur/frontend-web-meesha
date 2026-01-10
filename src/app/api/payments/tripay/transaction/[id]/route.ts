@@ -31,53 +31,60 @@ export async function GET(
       ...(ifModifiedSince ? { "If-Modified-Since": ifModifiedSince } : {}),
     };
 
-    const pathUrl = `${BACKEND_URL}/api/v1/payments/tripay/transaction/${encodeURIComponent(
-      params.id
-    )}`;
+    const encodedId = encodeURIComponent(params.id);
+    const candidates = [
+      `${BACKEND_URL}/api/v1/payments/tripay/transaction/${encodedId}`,
+      `${BACKEND_URL}/api/v1/payments/tripay/transaction?reference=${encodedId}`,
+      `${BACKEND_URL}/api/payments/tripay/transaction/${encodedId}`,
+    ];
 
-    let res = await fetch(pathUrl, {
-      method: "GET",
-      headers: baseHeaders,
-      cache: "no-store",
-    });
+    let res: Response | null = null;
+    let json: any = null;
+    let lastError: any = null;
 
-    // 304 Not Modified: propagate directly without body
-    if (res.status === 304) {
-      const headers: Record<string, string> = {};
-      const cc = res.headers.get("cache-control");
-      const etag = res.headers.get("etag");
-      const lm = res.headers.get("last-modified");
-      if (cc) headers["Cache-Control"] = cc;
-      if (etag) headers["ETag"] = etag;
-      if (lm) headers["Last-Modified"] = lm;
-      return new NextResponse(null, { status: 304, headers });
+    for (const url of candidates) {
+      try {
+        const attempt = await fetch(url, {
+          method: "GET",
+          headers: baseHeaders,
+          cache: "no-store",
+        });
+
+        if (attempt.status === 304) {
+          const headers: Record<string, string> = {};
+          const cc = attempt.headers.get("cache-control");
+          const etag = attempt.headers.get("etag");
+          const lm = attempt.headers.get("last-modified");
+          if (cc) headers["Cache-Control"] = cc;
+          if (etag) headers["ETag"] = etag;
+          if (lm) headers["Last-Modified"] = lm;
+          return new NextResponse(null, { status: 304, headers });
+        }
+
+        const body = await attempt.json().catch(() => ({}));
+
+        if (attempt.ok) {
+          res = attempt;
+          json = body;
+          break;
+        } else {
+           // Jika error spesifik "undefined parameter reference", kita lanjut ke candidate berikutnya (yang pakai query)
+           // Tapi loop ini sudah mengcovernya.
+           lastError = { status: attempt.status, body };
+        }
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    let json = await res.json().catch(() => ({}));
-    // Fallback kompatibilitas: bila backend masih butuh query ?reference=
-    if (
-      !res.ok &&
-      /Undefined\s*parameter\s*:\s*reference/i.test(String(json?.message))
-    ) {
-      const qsUrl = `${BACKEND_URL}/api/v1/payments/tripay/transaction?reference=${encodeURIComponent(
-        params.id
-      )}`;
-      res = await fetch(qsUrl, {
-        method: "GET",
-        headers: baseHeaders,
-        cache: "no-store",
-      });
-      json = await res.json().catch(() => ({}));
-    }
-
-    if (!res.ok) {
-      return NextResponse.json(
+    if (!res || !json) {
+       return NextResponse.json(
         {
           success: false,
-          message: json?.message || "Gagal mengambil status transaksi",
-          ...json,
+          message: lastError?.body?.message || "Gagal mengambil status transaksi (Not Found)",
+          ...(lastError?.body || {}),
         },
-        { status: res.status || 500 }
+        { status: lastError?.status || 404 }
       );
     }
 

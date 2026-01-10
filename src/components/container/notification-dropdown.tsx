@@ -81,11 +81,17 @@ export const NotificationDropdown = ({ viewAllLink = "/notifications" }: { viewA
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex w-full justify-between gap-2">
-                  <span className="font-semibold text-sm">{notification.title}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: id })}
-                  </span>
-                </div>
+                          <span className="font-semibold text-sm">{notification.title}</span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {(() => {
+                              try {
+                                return formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: id });
+                              } catch {
+                                return "";
+                              }
+                            })()}
+                          </span>
+                        </div>
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {notification.message}
                 </p>

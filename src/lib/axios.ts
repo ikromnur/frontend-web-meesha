@@ -51,15 +51,18 @@ axiosInstance.interceptors.request.use(
     ) {
       // Pastikan config.url diawali "/"
       const path = config.url.startsWith("/") ? config.url : `/${config.url}`;
-      
+
       // FIX: If targeting backend directly (baseURL is set), use /api/v1
       // Otherwise (proxy), use /api
       if (baseURL) {
-        config.url = `/api/v1${path}`;
+        if (path.startsWith("/v1")) {
+          config.url = `/api${path}`;
+        } else {
+          config.url = `/api/v1${path}`;
+        }
       } else {
         config.url = `/api${path}`;
       }
-    
     }
 
     // Ambil session

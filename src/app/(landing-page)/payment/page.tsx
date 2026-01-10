@@ -4,6 +4,22 @@ import React, { useEffect, useMemo, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Clock, Copy, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import ProgressStepper from "@/components/ui/progress-stepper";
 import UnauthorizePage from "@/components/pages/unauthorize";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +135,17 @@ function PaymentContent() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [hasSynced, setHasSynced] = useState(false);
   const [hasFetchAttempted, setHasFetchAttempted] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false); // New state for loading indicator
+  const [isMethodSelectionVisible, setIsMethodSelectionVisible] = useState(
+    () => {
+      if (typeof window !== "undefined") {
+        const p = new URLSearchParams(window.location.search);
+        // Jika ada param 'order', anggap kita sedang memuat transaksi yang sudah ada (sembunyikan seleksi dulu)
+        if (p.get("order")) return false;
+      }
+      return true;
+    }
+  );
   const POLL_INTERVAL_MS = 5000;
 
   // Ringkasan jadwal pengambilan (Asia/Jakarta)
@@ -200,6 +227,26 @@ function PaymentContent() {
         if (res.ok && (js?.data || js)) {
           const d = js?.data ?? js;
           setBackendOrder(d);
+
+          // Jika order memiliki tripayReference, gunakan itu untuk fetch status transaksi
+          // Ini mengatasi masalah jika fetch by merchantRef (UUID) gagal di backend
+          if (d?.tripayReference) {
+            setTripayReference(d.tripayReference);
+            // Paksa sembunyikan pemilihan metode pembayaran jika kita sudah punya referensi transaksi
+            setIsMethodSelectionVisible(false);
+          } else {
+            // Coba restore dari sessionStorage jika backend belum punya
+            try {
+              const savedRef = sessionStorage.getItem(
+                `tripay_ref_${orderParam}`
+              );
+              if (savedRef) {
+                setTripayReference(savedRef);
+                setIsMethodSelectionVisible(false);
+              }
+            } catch {}
+          }
+
           // Simpan juga ke sessionStorage agar handleContinue dapat menemukan merchant_ref
           try {
             sessionStorage.setItem("checkout:orderId", String(orderParam));
@@ -275,12 +322,72 @@ function PaymentContent() {
           if (expMs) setRemainingMs(Math.max(expMs - Date.now(), 0));
         }
         if (shouldStopPolling(d?.status)) setAutoRefresh(false);
+
+        // Auto-hide method selection if transaction is active (UNPAID/PENDING)
+        // BUT: If it's a local fallback (backend lost connection to Tripay or Tripay data gone),
+        // we must keep the selection visible so user can create a new transaction.
+        const statusUpper = String(d?.status || "").toUpperCase();
+        if (
+          (statusUpper === "UNPAID" || statusUpper === "PENDING") &&
+          !d?.is_local_fallback
+        ) {
+          setIsMethodSelectionVisible(false);
+        } else if (
+          !d?.status ||
+          statusUpper === "FAILED" ||
+          statusUpper === "EXPIRED" ||
+          statusUpper === "CANCELLED"
+        ) {
+          // Jika status terminal atau tidak valid, tampilkan pilihan metode agar user bisa buat baru
+          // TAPI: Jika ini adalah 'CANCELLED' tapi kita baru saja memuat, pastikan bukan karena kesalahan sesaat.
+          // Cek apakah masih dalam periode valid (expiry belum lewat).
+          let hasTime = false;
+          if (d?.expired_time) {
+            const exp = Number(d.expired_time) * 1000;
+            if (exp > Date.now()) hasTime = true;
+          } else if (d?.expired_at) {
+            const ea = d.expired_at;
+            const expMs =
+              typeof ea === "number"
+                ? ea * 1000
+                : new Date(String(ea)).getTime();
+            if (expMs > Date.now()) hasTime = true;
+          }
+
+          if (statusUpper === "CANCELLED" && hasTime) {
+            // Jika status CANCELLED tapi waktu masih ada, jangan langsung timpa dengan form pembayaran.
+            // Biarkan user melihat detail transaksi (mungkin backend salah update atau delay sync).
+            console.warn(
+              "[Payment] Status CANCELLED but time remains. Keeping details visible."
+            );
+            setIsMethodSelectionVisible(false);
+          } else {
+            setIsMethodSelectionVisible(true);
+          }
+        }
       } catch (e: any) {
-        const message = e?.message ?? String(e);
+        let message = e?.response?.data?.message || e?.message || String(e);
+        if (typeof message === "object") {
+          message = message.message || JSON.stringify(message);
+        }
         // Ignore 404 (Not Found) as it simply means transaction hasn't been created yet
         if (e?.response?.status === 404 || /404/.test(message)) {
           setStatusError(null);
           setAutoRefresh(false);
+
+          // CRITICAL FIX: Only show method selection if we really don't have a known Tripay reference
+          // If backendOrder says we have a reference, but Tripay returns 404, it might be a temporary sync issue.
+          // Don't force user to pay again if we know a reference exists.
+          if (tripayReference) {
+            console.warn(
+              "[Payment] 404 from Tripay but tripayReference exists. Retrying or waiting..."
+            );
+            // Optionally set an error message but keep method selection hidden
+            setStatusError("Sedang memuat detail transaksi...");
+          } else {
+            // Jika 404 dan tidak ada reference, berarti belum ada transaksi di Tripay -> tampilkan pilihan metode
+            setIsMethodSelectionVisible(true);
+          }
         } else {
           setStatusError(message);
           if (!silent) {
@@ -312,6 +419,20 @@ function PaymentContent() {
       fetchStatus(true);
     }
   }, [merchantRef, transactionData, fetchStatus]);
+
+  // FIX: Auto-hide payment method selection if transaction data is loaded
+  useEffect(() => {
+    if (transactionData && transactionData.status) {
+      const s = String(transactionData.status).toUpperCase();
+      // Only hide if it's NOT a local fallback (meaning we have real Tripay data)
+      if (
+        ["UNPAID", "PENDING", "PAID", "SUCCESS", "PROCESSING"].includes(s) &&
+        !transactionData.is_local_fallback
+      ) {
+        setIsMethodSelectionVisible(false);
+      }
+    }
+  }, [transactionData]);
 
   // Auto-sync status order di backend jika Tripay sudah UNPAID tapi order mungkin belum PENDING
   useEffect(() => {
@@ -377,29 +498,48 @@ function PaymentContent() {
   async function handleContinue(selectedCode: string) {
     try {
       setCreating(true);
-      // Jika ada transaksi dan sudah EXPIRED, blok pembuatan ulang
+
+      // --- VALIDASI STATE TRANSAKSI ---
       const currentStatus = String(transactionData?.status || "").toUpperCase();
-      const hasExpiry = Boolean(
-        transactionData?.expired_time ?? transactionData?.expired_at
-      );
+      const isUnpaid = ["UNPAID", "PENDING"].includes(currentStatus);
 
-      // CEK RESUME: Jika user memilih metode yang sama dengan transaksi UNPAID saat ini, jangan buat baru.
-      // Ini mencegah duplikasi transaksi Tripay untuk order yang sama.
-      const currentMethod = String(
-        transactionData?.method || transactionData?.payment_method || ""
-      ).toUpperCase();
-      const selected = String(selectedCode || "").toUpperCase();
-      const isUnpaid =
-        currentStatus === "UNPAID" || currentStatus === "PENDING";
+      // Logic: Apakah kita harus mencegah user membuat transaksi baru?
+      // Kita cegah jika user memilih metode yang SAMA dengan transaksi yang sedang AKTIF (UNPAID/PENDING).
+      const shouldResumeExisting = (() => {
+        if (!isUnpaid) return false;
+        if (transactionData?.is_local_fallback) return false; // Fallback lokal boleh ditimpa (dianggap error/incomplete)
 
-      // Metode dianggap sama jika stringnya persis sama atau salah satu mengandung yang lain
-      // (misal "BNIVA" vs "BNI Virtual Account" - ini heuristik sederhana)
-      // Tapi biasanya Tripay mengembalikan kode metode (misal "BNIVA") di field method.
-      const isSameMethod =
-        currentMethod === selected ||
-        (currentMethod && selected && currentMethod.includes(selected));
+        const currentMethod = String(
+          transactionData?.method || transactionData?.payment_method || ""
+        ).toUpperCase();
+        const selected = String(selectedCode || "").toUpperCase();
 
-      if (isUnpaid && isSameMethod && (!hasExpiry || remainingMs > 0)) {
+        // Heuristik: Metode dianggap sama jika stringnya mirip (misal "BNIVA" vs "BNI Virtual Account")
+        const isSameMethod =
+          currentMethod === selected ||
+          (currentMethod && selected && currentMethod.includes(selected));
+
+        if (!isSameMethod) return false;
+
+        // Cek apakah transaksi valid (punya instruksi pembayaran)
+        const hasInstructions =
+          (Array.isArray(transactionData?.instructions) &&
+            transactionData.instructions.length > 0) ||
+          transactionData?.qr_url ||
+          transactionData?.qr_string ||
+          transactionData?.pay_code ||
+          transactionData?.va_number ||
+          transactionData?.payment_url ||
+          transactionData?.checkout_url;
+
+        // Cek sisa waktu
+        const hasTimeRemaining =
+          !transactionData?.expired_time || remainingMs > 0;
+
+        return hasInstructions && hasTimeRemaining;
+      })();
+
+      if (shouldResumeExisting) {
         toast({
           title: "Transaksi Sudah Aktif",
           description:
@@ -408,6 +548,10 @@ function PaymentContent() {
         setCreating(false);
         return;
       }
+
+      const hasExpiry = Boolean(
+        transactionData?.expired_time ?? transactionData?.expired_at
+      );
 
       if (currentStatus === "EXPIRED" || (hasExpiry && remainingMs <= 0)) {
         toast({
@@ -600,8 +744,9 @@ function PaymentContent() {
         }/payment${
           newMerchantRef ? `?order=${encodeURIComponent(newMerchantRef)}` : ""
         }`,
-        // Setel masa berlaku transaksi 60 menit
-        expired_time: Math.floor(Date.now() / 1000) + 60 * 60,
+        // Setel masa berlaku transaksi. UBAH DI SINI untuk mengatur durasi expired (dalam detik).
+        // Saat ini diset 1 jam (3600 detik).
+        expired_time: Math.floor(Date.now() / 1000) + 3600,
         discountCode: discount?.code,
         ...(pickupAt ? { pickupAt } : {}),
         ...(pickupLocal
@@ -742,311 +887,436 @@ function PaymentContent() {
 
   // Otomatis batalkan Order ketika waktu habis atau status EXPIRED
   // Catatan: pastikan expiry tersedia agar tidak membatalkan saat nilai awal countdown masih 0.
+  // LOGIKA PEMBATALAN OTOMATIS DI FRONTEND DINONAKTIFKAN
+  // untuk mencegah pembatalan prematur saat user menutup tab/browser.
+  /*
   useEffect(() => {
-    const status = String(transactionData?.status || "").toUpperCase();
-    const hasExpiry = Boolean(
-      transactionData?.expired_time ?? transactionData?.expired_at
-    );
-    if (hasCancelled) return;
+    // Disabled to prevent premature cancellation
+  }, []);
+  */
+
+  // Display Logic: Override status if premature cancellation detected
+  const displayStatus = useMemo(() => {
+    const raw = String(transactionData?.status || "").toUpperCase();
+    // Jika status CANCELLED tapi waktu masih ada dan kita punya referensi Tripay,
+    // kemungkinan ini adalah pembatalan prematur oleh backend (auto-cancel).
+    // Kita override tampilan menjadi PENDING agar user tidak bingung.
     if (
-      (status === "EXPIRED" || (hasExpiry && remainingMs <= 0)) &&
-      merchantRef
+      raw === "CANCELLED" &&
+      remainingMs > 0 &&
+      (tripayReference || transactionData?.reference)
     ) {
-      (async () => {
-        try {
-          await api
-            .patch(`/api/orders/${encodeURIComponent(merchantRef)}`, {
-              status: "CANCELLED",
-            })
-            .catch(() => {});
-          setHasCancelled(true);
-          setAutoRefresh(false);
-        } catch {}
-      })();
+      return "PENDING";
     }
+    return raw;
   }, [
     transactionData?.status,
-    transactionData?.expired_time,
-    transactionData?.expired_at,
     remainingMs,
-    merchantRef,
-    hasCancelled,
+    tripayReference,
+    transactionData?.reference,
   ]);
 
   if (!session) return <UnauthorizePage />;
 
-  return (
-    <div className="relative w-full max-w-screen-xl mx-auto px-4 py-6 space-y-6">
-      <ProgressStepper currentStep={3} className="mb-2" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="border rounded-md p-4 space-y-3">
-          <h3 className="font-semibold">Pilih Metode Pembayaran</h3>
-          {isLoading ? (
-            <div className="text-sm text-muted-foreground">
-              Memuat keranjang...
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Total bayar</span>
-                <span className="font-medium">
-                  {formatRupiah(
-                    initialTotal !== null ? initialTotal : totalAfterDiscount
-                  )}
-                </span>
-              </div>
-              <Separator />
-              <div className="border rounded-md p-3">
-                <div className="text-sm font-medium">
-                  Ringkasan Jadwal Pengambilan
-                </div>
-                {pickupSummary ? (
-                  <div className="text-sm mt-1">{pickupSummary}</div>
-                ) : (
-                  <div className="text-sm mt-1 text-muted-foreground">
-                    Belum ada jadwal tersimpan. Pilih jadwal di Checkout lalu
-                    lanjutkan.
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  Zona waktu: Asia/Jakarta. Jam operasional: 09:00–22:00.
-                </p>
-              </div>
-              <PaymentMethod
-                totalPrice={
-                  initialTotal !== null ? initialTotal : totalAfterDiscount
-                }
-                onContinue={handleContinue}
-              />
-              {creating && (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Membuat transaksi...
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+  if (
+    isLoading ||
+    (merchantRef &&
+      !transactionData &&
+      !hasFetchAttempted &&
+      !isMethodSelectionVisible)
+  ) {
+    return (
+      <div className="container mx-auto py-10 text-center">
+        <p>Memuat data transaksi...</p>
+      </div>
+    );
+  }
 
-        <section className="border rounded-md p-4 space-y-3">
-          <h3 className="font-semibold">Status Pembayaran</h3>
-          {!transactionData ? (
-            statusError && merchantRef ? (
-              <div className="text-sm">
-                <div className="text-red-600 font-medium">
-                  Gagal memuat status: {statusError}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isRefreshing}
-                    onClick={() => fetchStatus(false)}
-                  >
-                    Coba lagi
-                  </Button>
-                </div>
+  return (
+    <div className="relative w-full max-w-3xl mx-auto px-4 py-6 space-y-6">
+      {/* Loading Overlay saat refresh manual/auto */}
+      {isCheckingStatus && !transactionData && (
+        <div className="fixed inset-0 bg-white/50 z-50 flex items-center justify-center">
+          <div className="bg-white p-4 rounded shadow">
+            Memeriksa status pembayaran...
+          </div>
+        </div>
+      )}
+      <ProgressStepper currentStep={3} className="mb-2" />
+
+      {isMethodSelectionVisible ? (
+        <Card className="h-fit shadow-md border-border">
+          <CardHeader className="pb-3 bg-muted/30">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <div className="bg-primary/10 p-1.5 rounded-full">
+                <RefreshCw className="w-4 h-4 text-primary" />
+              </div>
+              Pilih Metode Pembayaran
+            </CardTitle>
+            <CardDescription>
+              Pilih metode pembayaran yang Anda inginkan.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground space-y-2">
+                <RefreshCw className="h-6 w-6 animate-spin" />
+                <p className="text-sm">Memuat data keranjang...</p>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground">
-                {merchantRef && !hasFetchAttempted
-                  ? "Memuat status transaksi..."
-                  : "Belum ada transaksi. Pilih metode dan lanjutkan."}
-              </div>
-            )
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-muted-foreground">Nomor Pesanan</div>
-                  <div className="font-medium">{merchantRef}</div>
+              <>
+                <div className="bg-secondary/20 p-4 rounded-lg border border-border/50 flex flex-col sm:flex-row justify-between items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Total Pembayaran
+                  </span>
+                  <span className="text-2xl font-bold text-primary">
+                    {formatRupiah(
+                      initialTotal !== null ? initialTotal : totalAfterDiscount
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Jumlah dibayar</div>
-                  <div className="font-medium">
-                    {formatRupiah(Number(transactionData?.amount ?? 0))}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Metode</div>
-                  <div className="font-medium">
-                    {transactionData?.payment_name ??
-                      transactionData?.payment_method ??
-                      "-"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Status</div>
-                  <div className="font-medium">
-                    {String(transactionData?.status ?? "-").toUpperCase()}
-                  </div>
-                </div>
-                {expiresLocal ? (
-                  <div>
-                    <div className="text-muted-foreground">
-                      Batas Pembayaran
-                    </div>
-                    <div className="font-medium">{expiresLocal}</div>
-                  </div>
-                ) : null}
-                {!shouldStopPolling(
-                  String(transactionData?.status || "").toUpperCase()
-                ) &&
-                (transactionData?.expired_time ||
-                  transactionData?.expired_at) ? (
-                  <div>
-                    <div className="text-muted-foreground">Sisa waktu</div>
-                    <div
-                      className={`font-medium ${
-                        remainingMs === 0 ? "text-red-600" : ""
-                      }`}
-                    >
-                      {formatCountdown(remainingMs)}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
 
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Auto refresh: {autoRefresh ? "On" : "Off"}</span>
-                <span>•</span>
-                <span>
-                  Terakhir diperbarui:{" "}
-                  {lastUpdatedAt
-                    ? new Date(lastUpdatedAt).toLocaleString()
-                    : "-"}
-                </span>
-              </div>
+                <Separator />
 
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isRefreshing || !merchantRef}
-                  onClick={() => fetchStatus(false)}
-                >
-                  {isRefreshing ? "Merefresh..." : "Refresh Status"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setAutoRefresh((v) => !v)}
-                >
-                  {autoRefresh
-                    ? "Matikan Auto Refresh"
-                    : "Nyalakan Auto Refresh"}
-                </Button>
-              </div>
-
-              {(transactionData?.qr_url || transactionData?.qr_string) && (
-                <div className="border rounded p-3">
-                  <div className="text-sm font-medium mb-2">QRIS</div>
-                  {transactionData?.qr_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={transactionData.qr_url}
-                      alt="QRIS"
-                      className="w-56 h-56 object-contain"
-                    />
-                  )}
-                  {!transactionData?.qr_url && transactionData?.qr_string && (
-                    <pre className="text-xs bg-muted p-2 rounded break-all">
-                      {transactionData.qr_string}
-                    </pre>
-                  )}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Metode Tersedia:</p>
+                  <PaymentMethod
+                    totalPrice={
+                      initialTotal !== null ? initialTotal : totalAfterDiscount
+                    }
+                    onContinue={handleContinue}
+                  />
                 </div>
-              )}
 
-              {transactionData?.payment_url && (
-                <div>
-                  <a
-                    href={transactionData.payment_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button type="button" variant="default">
-                      Buka Halaman Pembayaran
-                    </Button>
-                  </a>
-                </div>
-              )}
-
-              {Array.isArray(transactionData?.instructions) &&
-                transactionData.instructions.length > 0 && (
-                  <div>
-                    <h5 className="font-medium">Instruksi Pembayaran</h5>
-                    <div className="space-y-3">
-                      {transactionData.instructions.map(
-                        (ins: any, idx: number) => {
-                          const title =
-                            ins?.title || ins?.method || "Instruksi";
-                          const steps = Array.isArray(ins?.steps)
-                            ? ins.steps
-                            : Array.isArray(ins)
-                            ? ins
-                            : [];
-                          if (steps.length === 0) {
-                            return (
-                              <div key={idx} className="text-sm">
-                                {typeof ins === "string"
-                                  ? ins
-                                  : JSON.stringify(ins)}
-                              </div>
-                            );
-                          }
-                          return (
-                            <div key={idx} className="text-sm">
-                              <div className="font-medium mb-1">{title}</div>
-                              <ol className="list-decimal ml-5 space-y-1">
-                                {steps.map((s: string, i: number) => (
-                                  <li key={i}>{s}</li>
-                                ))}
-                              </ol>
-                            </div>
-                          );
-                        }
-                      )}
-                    </div>
+                {creating && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2 bg-muted/30 rounded">
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    Membuat transaksi...
                   </div>
                 )}
-
-              {(transactionData?.pay_code || transactionData?.va_number) && (
-                <div className="border rounded p-3">
-                  <div className="text-sm font-medium mb-2">
-                    Nomor Virtual Account
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono">
-                      {transactionData?.pay_code ?? transactionData?.va_number}
-                    </code>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const txt = String(
-                          transactionData?.pay_code ??
-                            transactionData?.va_number ??
-                            ""
-                        );
-                        if (!txt) return;
-                        try {
-                          navigator.clipboard.writeText(txt);
-                          toast({
-                            title: "Disalin",
-                            description: "Nomor VA telah disalin.",
-                          });
-                        } catch {}
-                      }}
-                    >
-                      Salin
-                    </Button>
-                  </div>
-                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="w-full shadow-md border-border overflow-hidden">
+          <CardHeader className="bg-muted/30 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">Status Pembayaran</CardTitle>
+                <CardDescription className="mt-1">
+                  Pantau status pesanan dan selesaikan pembayaran Anda.
+                </CardDescription>
+              </div>
+              {transactionData && (
+                <Badge
+                  variant={
+                    displayStatus === "PAID" || displayStatus === "SUCCESS"
+                      ? "default"
+                      : displayStatus === "EXPIRED" ||
+                        displayStatus === "FAILED"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                  className={`px-3 py-1 text-sm ${
+                    displayStatus === "PAID" || displayStatus === "SUCCESS"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : displayStatus === "UNPAID" ||
+                        displayStatus === "PENDING"
+                      ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                      : ""
+                  }`}
+                >
+                  {displayStatus}
+                </Badge>
               )}
             </div>
-          )}
-        </section>
-      </div>
+          </CardHeader>
+
+          <CardContent className="pt-6 space-y-6">
+            {!transactionData ? (
+              statusError && merchantRef ? (
+                <div className="text-center py-8 space-y-4">
+                  <XCircle className="w-12 h-12 text-red-500 mx-auto" />
+                  <div className="space-y-2">
+                    <p className="font-medium text-red-600">
+                      Gagal memuat status
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {statusError}
+                    </p>
+                  </div>
+                  <Button onClick={() => fetchStatus(false)} variant="outline">
+                    <RefreshCw className="mr-2 h-4 w-4" /> Coba Lagi
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  {merchantRef && !hasFetchAttempted ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                      <p>Memuat detail transaksi...</p>
+                    </div>
+                  ) : (
+                    <p>
+                      Belum ada transaksi aktif. Silakan pilih metode pembayaran
+                      di atas.
+                    </p>
+                  )}
+                </div>
+              )
+            ) : (
+              <>
+                {/* Top Summary Box */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-secondary/20 p-4 rounded-lg border border-border/50">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                      Total Tagihan
+                    </p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatRupiah(Number(transactionData?.amount ?? 0))}
+                    </p>
+                  </div>
+                  <div className="flex flex-col md:items-end justify-center">
+                    {!shouldStopPolling(displayStatus) &&
+                    (transactionData?.expired_time ||
+                      transactionData?.expired_at) ? (
+                      <>
+                        <div className="flex items-center gap-2 text-red-600 font-medium animate-pulse">
+                          <Clock className="h-4 w-4" />
+                          <span>Sisa Waktu Pembayaran</span>
+                        </div>
+                        <p className="text-xl font-mono font-bold mt-1">
+                          {formatCountdown(remainingMs)}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <CheckCircle className="h-5 w-5" />
+                        <span>Transaksi Selesai / Berakhir</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                  <div className="flex justify-between sm:block border-b sm:border-0 pb-2 sm:pb-0">
+                    <span className="text-muted-foreground">Nomor Pesanan</span>
+                    <p className="font-medium mt-0.5">{merchantRef}</p>
+                  </div>
+                  <div className="flex justify-between sm:block border-b sm:border-0 pb-2 sm:pb-0">
+                    <span className="text-muted-foreground">
+                      Metode Pembayaran
+                    </span>
+                    <p className="font-medium mt-0.5">
+                      {transactionData?.payment_name ??
+                        transactionData?.payment_method ??
+                        "-"}
+                    </p>
+                  </div>
+                  {expiresLocal && (
+                    <div className="flex justify-between sm:block border-b sm:border-0 pb-2 sm:pb-0">
+                      <span className="text-muted-foreground">Batas Waktu</span>
+                      <p className="font-medium mt-0.5">{expiresLocal}</p>
+                    </div>
+                  )}
+                  <div className="flex justify-between sm:block border-b sm:border-0 pb-2 sm:pb-0">
+                    <span className="text-muted-foreground">
+                      Status Terkini
+                    </span>
+                    <p className="font-medium mt-0.5">{displayStatus}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Payment Actions: VA / QRIS */}
+                <div className="space-y-6">
+                  {/* Virtual Account */}
+                  {(transactionData?.pay_code ||
+                    transactionData?.va_number) && (
+                    <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                        Nomor Virtual Account
+                      </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <code className="text-xl sm:text-2xl font-mono font-bold tracking-wider text-primary">
+                          {transactionData?.pay_code ??
+                            transactionData?.va_number}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 gap-2"
+                          onClick={() => {
+                            const txt = String(
+                              transactionData?.pay_code ??
+                                transactionData?.va_number ??
+                                ""
+                            );
+                            if (!txt) return;
+                            try {
+                              navigator.clipboard.writeText(txt);
+                              toast({
+                                title: "Disalin",
+                                description: "Nomor VA telah disalin.",
+                              });
+                            } catch {}
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                          <span className="hidden sm:inline">Salin</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QRIS */}
+                  {(transactionData?.qr_url || transactionData?.qr_string) && (
+                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl bg-muted/20">
+                      <p className="font-medium mb-4">
+                        Scan QRIS untuk Membayar
+                      </p>
+                      {transactionData?.qr_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={transactionData.qr_url}
+                          alt="QRIS Code"
+                          className="w-48 h-48 object-contain bg-white p-2 rounded-lg shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-full max-w-xs break-all text-xs bg-muted p-4 rounded">
+                          {transactionData.qr_string}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Payment Link Button */}
+                  {transactionData?.payment_url && (
+                    <Button className="w-full" size="lg" asChild>
+                      <a
+                        href={transactionData.payment_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Buka Halaman Pembayaran
+                      </a>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Instructions Accordion */}
+                {Array.isArray(transactionData?.instructions) &&
+                  transactionData.instructions.length > 0 && (
+                    <Accordion
+                      type="single"
+                      collapsible
+                      className="w-full border rounded-lg"
+                    >
+                      <AccordionItem
+                        value="instructions"
+                        className="border-none"
+                      >
+                        <AccordionTrigger className="px-4 hover:no-underline hover:bg-muted/50 rounded-t-lg">
+                          <span className="font-medium">
+                            Lihat Instruksi Pembayaran
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4 pt-2 bg-muted/10">
+                          <div className="space-y-6 mt-2">
+                            {transactionData.instructions.map(
+                              (ins: any, idx: number) => {
+                                const title =
+                                  ins?.title ||
+                                  ins?.method ||
+                                  `Langkah ${idx + 1}`;
+                                const steps = Array.isArray(ins?.steps)
+                                  ? ins.steps
+                                  : Array.isArray(ins)
+                                  ? ins
+                                  : [];
+                                if (steps.length === 0) {
+                                  return (
+                                    <div key={idx} className="text-sm">
+                                      {typeof ins === "string"
+                                        ? ins
+                                        : JSON.stringify(ins)}
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div key={idx}>
+                                    <h5 className="font-semibold text-sm mb-2 text-primary">
+                                      {title}
+                                    </h5>
+                                    <ol className="list-decimal list-outside ml-4 space-y-1 text-sm text-muted-foreground">
+                                      {steps.map((step: string, i: number) => (
+                                        <li
+                                          key={i}
+                                          dangerouslySetInnerHTML={{
+                                            __html: step,
+                                          }}
+                                        />
+                                      ))}
+                                    </ol>
+                                  </div>
+                                );
+                              }
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+              </>
+            )}
+          </CardContent>
+
+          <CardFooter className="bg-muted/30 py-3 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  autoRefresh ? "bg-green-500 animate-pulse" : "bg-gray-300"
+                }`}
+              />
+              <span>Auto-refresh: {autoRefresh ? "Aktif" : "Mati"}</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">
+                Updated:{" "}
+                {lastUpdatedAt
+                  ? new Date(lastUpdatedAt).toLocaleTimeString()
+                  : "-"}
+              </span>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAutoRefresh((v) => !v)}
+                className="flex-1 sm:flex-none"
+              >
+                {autoRefresh ? "Stop Refresh" : "Auto Refresh"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isRefreshing}
+                onClick={() => fetchStatus(false)}
+                className="flex-1 sm:flex-none"
+              >
+                <RefreshCw
+                  className={`mr-2 h-3 w-3 ${
+                    isRefreshing ? "animate-spin" : ""
+                  }`}
+                />
+                Refresh
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      )}
 
       <div className="flex justify-between mt-2">
         <Button variant="secondary" onClick={() => router.push("/checkout")}>

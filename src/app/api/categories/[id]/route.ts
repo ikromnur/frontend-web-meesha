@@ -66,7 +66,7 @@ export async function DELETE(
     const bearer = token?.accessToken
       ? `Bearer ${token.accessToken}`
       : req.headers.get("authorization") || "";
-    const url = `${BACKEND_URL}/api/categories/${id}`;
+    const url = `${BACKEND_URL}/api/v1/categories/${id}`;
 
     if (!bearer) {
       return NextResponse.json(

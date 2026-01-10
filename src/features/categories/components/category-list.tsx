@@ -159,6 +159,7 @@ export default function CategoryList() {
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
               <Input
+                name="search"
                 placeholder="Cari kategori..."
                 className="pl-9"
                 value={searchQuery}

@@ -28,15 +28,9 @@ export async function GET(
     const orderId = params.id;
 
     // Kandidat endpoint invoice di backend.
-    // Prioritaskan endpoint baru `/api/invoices/:id`, lalu fallback ke v1 dan yang lama.
+    // Sesuai instruksi: gunakan /api/v1/orders/.../invoice
     const candidates = [
-      `${BACKEND_URL}/api/invoices/${encodeURIComponent(orderId)}`,
       `${BACKEND_URL}/api/v1/orders/${encodeURIComponent(orderId)}/invoice`,
-      `${BACKEND_URL}/api/v1/orders/${encodeURIComponent(
-        orderId
-      )}/invoice/preview`,
-      `${BACKEND_URL}/api/orders/${encodeURIComponent(orderId)}/invoice`,
-      `${BACKEND_URL}/api/orders/${encodeURIComponent(orderId)}/invoice.pdf`,
     ];
 
     const baseHeaders: Record<string, string> = {

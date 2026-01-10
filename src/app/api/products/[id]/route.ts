@@ -50,7 +50,7 @@ export async function PUT(
 
     const formData = await request.formData();
 
-    const response = await fetch(`${BACKEND_URL}/api/products/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/products/${id}`, {
       method: "PUT",
       // Forward auth header when available
       headers: {
@@ -104,7 +104,7 @@ export async function DELETE(
       "http://localhost:4000";
     const { id } = params;
 
-    const response = await fetch(`${BACKEND_URL}/api/products/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/products/${id}`, {
       method: "DELETE",
       headers: {
         ...(request.headers.get("authorization")

@@ -63,7 +63,7 @@ export async function PATCH(
       payload.status = payload.status.toUpperCase();
     }
 
-    const res = await fetch(`${BACKEND_URL}/api/orders/${params.id}`, {
+    const res = await fetch(`${BACKEND_URL}/api/v1/orders/${params.id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -121,59 +121,39 @@ export async function GET(
       ...(bearer ? { Authorization: bearer } : {}),
     };
 
-    const candidates = [
-      `${BACKEND_URL}/api/orders/${params.id}`,
-      `${BACKEND_URL}/orders/${params.id}`,
-      `${BACKEND_URL}/api/orders?orderId=${encodeURIComponent(params.id)}`,
-      `${BACKEND_URL}/orders?orderId=${encodeURIComponent(params.id)}`,
-    ];
+    // Prioritize /api/v1/orders/[id] which is the correct backend endpoint
+    const url = `${BACKEND_URL}/api/v1/orders/${params.id}`;
 
-    let lastError: any = null;
-    for (const url of candidates) {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: commonHeaders,
-        cache: "no-store",
-      });
-      const ct = res.headers.get("content-type") || "";
-      const json = ct.includes("application/json")
-        ? await res.json().catch(() => ({}))
-        : undefined;
-      if (!json) {
-        // Jika non-JSON, teruskan apa adanya
-        const text = await res.text();
-        return new NextResponse(text as any, {
-          status: res.status,
-          headers: res.headers,
-        });
-      }
-      if (res.ok) {
-        // Normalisasi ke { data: order }
-        const payload: any = json;
-        const order = Array.isArray(payload)
-          ? payload.find(
-              (o) => String(o?.order_id || o?.merchant_ref) === params.id
-            ) || payload[0]
-          : payload?.data && !Array.isArray(payload.data)
-          ? payload.data
-          : Array.isArray(payload?.orders)
-          ? payload.orders[0]
-          : Array.isArray(payload?.results)
-          ? payload.results[0]
-          : payload;
-        return NextResponse.json({ data: order ?? null }, { status: 200 });
-      }
-      lastError = json;
-      if (res.status === 404 || res.status === 405) continue;
+    console.log(`[Proxy GET Order] Forwarding to: ${url}`);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: commonHeaders,
+      cache: "no-store",
+    });
+
+    const ct = res.headers.get("content-type") || "";
+    const json = ct.includes("application/json")
+      ? await res.json().catch(() => ({}))
+      : undefined;
+
+    if (!res.ok) {
+      console.error(`[Proxy GET Order] Backend Error ${res.status}:`, json);
+      return NextResponse.json(
+        {
+          success: false,
+          message: json?.message || "Gagal mengambil detail order",
+        },
+        { status: res.status }
+      );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: lastError?.message || "Gagal mengambil detail order",
-      },
-      { status: lastError?.status || 500 }
-    );
+    // Normalisasi ke { data: order }
+    // Backend sudah mengembalikan format { success: true, data: { ... } }
+    const payload: any = json;
+    const order = payload.data || payload;
+
+    return NextResponse.json({ data: order }, { status: 200 });
   } catch (error) {
     console.error("[Proxy orders/:id GET] Error:", error);
     return NextResponse.json(

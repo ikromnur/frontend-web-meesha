@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   try {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const search = new URL(req.url).search || "";
+    // URL tujuan ke backend. Pastikan sesuai dengan route backend yang aktif
     const url = `${BACKEND_URL}/api/v1/dashboard/stats${search}`;
 
     const res = await fetch(url, {

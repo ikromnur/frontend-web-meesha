@@ -82,7 +82,13 @@ export default function NotificationsPage() {
                       {notification.title}
                     </h3>
                     <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                      {format(new Date(notification.createdAt), "dd MMM yyyy HH:mm", { locale: id })}
+                      {(() => {
+                        try {
+                          return format(new Date(notification.createdAt), "dd MMM yyyy HH:mm", { locale: id });
+                        } catch {
+                          return "-";
+                        }
+                      })()}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">

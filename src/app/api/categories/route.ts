@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search");
 
-    const url = `${BACKEND_URL}/api/categories${
+    const url = `${BACKEND_URL}/api/v1/categories${
       search ? `?search=${encodeURIComponent(search)}` : ""
     }`;
 
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       : req.headers.get("authorization") || "";
 
     const body = await req.json();
-    const url = `${BACKEND_URL}/api/categories`;
+    const url = `${BACKEND_URL}/api/v1/categories`;
 
     if (!bearer) {
       return NextResponse.json(

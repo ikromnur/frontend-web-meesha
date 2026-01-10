@@ -36,17 +36,9 @@ export async function GET(
     };
 
     // Kandidat endpoint di backend untuk preview invoice.
-    // Prioritaskan endpoint baru `/api/invoices/:id/preview`, lalu fallback ke v1 dan yang lama.
+    // Sesuai instruksi: gunakan /api/v1/orders/.../invoice
     const candidates = [
-      `${BACKEND_URL}/api/invoices/${encodeURIComponent(orderId)}/preview`,
-      `${BACKEND_URL}/api/invoices/${encodeURIComponent(orderId)}`,
-      `${BACKEND_URL}/api/v1/orders/${encodeURIComponent(
-        orderId
-      )}/invoice/preview`,
       `${BACKEND_URL}/api/v1/orders/${encodeURIComponent(orderId)}/invoice`,
-      `${BACKEND_URL}/api/orders/${encodeURIComponent(orderId)}/invoice`,
-      `${BACKEND_URL}/api/orders/${encodeURIComponent(orderId)}/invoice/pdf`,
-      `${BACKEND_URL}/orders/${encodeURIComponent(orderId)}/invoice.pdf`,
     ];
 
     let lastError: Error | null = null;

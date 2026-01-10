@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
       qs.append(key, value);
     });
 
-    // Backend endpoint: /api/admin/orders/stats
-    const url = `${BACKEND_URL}/api/admin/orders/stats${
+    // Backend endpoint: /api/v1/admin/orders/stats
+    const url = `${BACKEND_URL}/api/v1/admin/orders/stats${
       qs.toString() ? `?${qs.toString()}` : ""
     }`;
 

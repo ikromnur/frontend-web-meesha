@@ -120,7 +120,7 @@ export async function PUT(request: NextRequest) {
     // Forward request to backend with FormData
     // FIX: Backend endpoint for user profile update is /api/users/profile, NOT /api/profile
     const response = await axios.patch(
-      `${BACKEND_URL}/api/users/profile`,
+      `${BACKEND_URL}/api/v1/users/profile`,
       formData,
       {
         headers: {

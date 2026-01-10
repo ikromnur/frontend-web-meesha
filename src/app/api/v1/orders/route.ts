@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
       qs.append(key, value);
     });
 
-    // Use /api/admin/orders for admin dashboard to get all orders with filters
-    const url = `${BACKEND_URL}/api/admin/orders${
+    // Use /api/v1/admin/orders for Admin Dashboard
+    // Previously: /api/v1/orders (User endpoint) which caused empty lists for admins
+    const url = `${BACKEND_URL}/api/v1/admin/orders${
       qs.toString() ? `?${qs.toString()}` : ""
     }`;
 

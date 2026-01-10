@@ -6,10 +6,10 @@ export const useNotifications = () => {
   return useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
-      // FIX: Gunakan relative path dan override baseURL
-      const { data } = await axiosInstance.get<NotificationResponse>("/api/notifications", {
-        baseURL: "",
-      });
+      // FIX: Gunakan relative path, biarkan axiosInstance menangani baseURL
+      const { data } = await axiosInstance.get<NotificationResponse>(
+        "/api/notifications"
+      );
       return data.data;
     },
   });
@@ -19,11 +19,11 @@ export const useUnreadCount = () => {
   return useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: async () => {
-        // FIX: Gunakan relative path dan override baseURL
-        const { data } = await axiosInstance.get<{ data: { count: number } }>("/api/notifications/unread-count", {
-            baseURL: "",
-        });
-        return data.data.count;
+      // FIX: Gunakan relative path, biarkan axiosInstance menangani baseURL
+      const { data } = await axiosInstance.get<{ data: { count: number } }>(
+        "/api/notifications/unread-count"
+      );
+      return data.data.count;
     },
     refetchInterval: 30000, // Refresh every 30s
   });

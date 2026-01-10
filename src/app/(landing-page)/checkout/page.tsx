@@ -30,29 +30,6 @@ function minutesFromTime(t: string): number | null {
   return hh * 60 + mm;
 }
 
-function clampToStoreHours(d: Date): Date {
-  const res = new Date(d);
-  const minutes = res.getHours() * 60 + res.getMinutes();
-  if (minutes < STORE_OPEN_MINUTES) {
-    res.setHours(
-      Math.floor(STORE_OPEN_MINUTES / 60),
-      STORE_OPEN_MINUTES % 60,
-      0,
-      0
-    );
-  } else if (minutes > STORE_CLOSE_MINUTES) {
-    // Geser ke hari berikutnya jam buka
-    res.setDate(res.getDate() + 1);
-    res.setHours(
-      Math.floor(STORE_OPEN_MINUTES / 60),
-      STORE_OPEN_MINUTES % 60,
-      0,
-      0
-    );
-  }
-  return res;
-}
-
 // Normalisasi nilai availability (string bebas atau enum)
 function normalizeAvailability(val: any): Availability | undefined {
   if (!val) return undefined;
@@ -110,35 +87,86 @@ function getLeadDays(val: any): number {
 
 function computeMinPickupAt(items: Cart[]): Date {
   const now = new Date();
-  // Buffer READY: +3 jam (sesuai backend); PO: +n hari
+
+  // 1. Calculate Max Lead Time (Days)
   const offsets = items.map((it) => {
     const v1 = (it as any)?.availability;
     const v2 = (it as any)?.product?.availability;
     const days = getLeadDays(v1 ?? v2);
-
-    if (days > 0) return { days, hours: 0 };
-    return { days: 0, hours: 3 }; // READY (buffer 3 jam)
+    return days;
   });
-  const maxDays = Math.max(...offsets.map((o) => o.days), 0);
-  const maxHours = Math.max(...offsets.map((o) => o.hours), 0);
-  const base = new Date(now);
-  base.setDate(base.getDate() + maxDays);
+  const maxDays = Math.max(...offsets, 0);
 
+  // 2. If Pre-Order (maxDays > 0)
   if (maxDays > 0) {
-    // Jika PO, reset waktu ke jam buka toko (09:00)
-    base.setHours(
+    const target = new Date(now);
+    target.setDate(target.getDate() + maxDays);
+    target.setHours(
       Math.floor(STORE_OPEN_MINUTES / 60),
       STORE_OPEN_MINUTES % 60,
       0,
       0
     );
-  } else {
-    // Jika Ready, tambahkan buffer jam dari sekarang
-    base.setHours(base.getHours() + maxHours);
+    return target;
   }
 
-  const clamped = clampToStoreHours(base);
-  return clamped;
+  // 3. If Ready Stock (maxDays == 0) -> 3 Hours Processing Time Logic
+  // Logic: Hitung durasi kerja efektif. Jika terpotong jam tutup, lanjut besok jam buka.
+  const durationMinutes = 3 * 60;
+  let remainingMinutes = durationMinutes;
+
+  let current = new Date(now);
+
+  // Safety loop (max 5 iterations/days)
+  for (let i = 0; i < 5; i++) {
+    const currentMinutes = current.getHours() * 60 + current.getMinutes();
+
+    // A. If before open, wait until open
+    if (currentMinutes < STORE_OPEN_MINUTES) {
+      current.setHours(
+        Math.floor(STORE_OPEN_MINUTES / 60),
+        STORE_OPEN_MINUTES % 60,
+        0,
+        0
+      );
+      continue; // Re-evaluate
+    }
+
+    // B. If after close, wait until tomorrow open
+    if (currentMinutes >= STORE_CLOSE_MINUTES) {
+      current.setDate(current.getDate() + 1);
+      current.setHours(
+        Math.floor(STORE_OPEN_MINUTES / 60),
+        STORE_OPEN_MINUTES % 60,
+        0,
+        0
+      );
+      continue;
+    }
+
+    // C. Calculate available working time today
+    const availableToday =
+      STORE_CLOSE_MINUTES - (current.getHours() * 60 + current.getMinutes());
+
+    if (availableToday >= remainingMinutes) {
+      // Can finish today
+      const result = new Date(current);
+      result.setMinutes(result.getMinutes() + remainingMinutes);
+      return result;
+    } else {
+      // Cannot finish today, use up available time and carry over remainder to tomorrow
+      remainingMinutes -= availableToday;
+      current.setDate(current.getDate() + 1);
+      current.setHours(
+        Math.floor(STORE_OPEN_MINUTES / 60),
+        STORE_OPEN_MINUTES % 60,
+        0,
+        0
+      );
+    }
+  }
+
+  return current;
 }
 
 export default function CheckoutPage() {
