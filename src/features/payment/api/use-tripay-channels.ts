@@ -18,7 +18,7 @@ export const useTripayChannels = () => {
       const session = await getSession();
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (session?.accessToken) headers["Authorization"] = `Bearer ${session.accessToken}`;
-      const resp = await fetch(`${base}/payments/tripay/channels`, {
+      const resp = await fetch(`${base}/api/v1/payments/tripay/channels`, {
         method: "GET",
         headers,
         cache: "no-store",

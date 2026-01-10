@@ -10,13 +10,13 @@ export async function POST(req: NextRequest) {
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
     console.log(
-      `[PROXY] Resetting password for ${email} to ${backendUrl}/api/auth/reset-password`
+      `[PROXY] Resetting password for ${email} to ${backendUrl}/api/v1/auth/reset-password`
     );
 
     try {
       // Coba kirim dengan newPassword
       const response = await axios.post(
-        `${backendUrl}/api/auth/reset-password`,
+        `${backendUrl}/api/v1/auth/reset-password`,
         {
           email,
           newPassword,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         console.log("[PROXY] Retrying with 'password' field...");
         try {
           const retryResponse = await axios.post(
-            `${backendUrl}/api/auth/reset-password`,
+            `${backendUrl}/api/v1/auth/reset-password`,
             {
               email,
               password: newPassword,

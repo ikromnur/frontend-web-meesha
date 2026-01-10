@@ -118,6 +118,7 @@ function PaymentContent() {
   const [hasCancelled, setHasCancelled] = useState<boolean>(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [hasSynced, setHasSynced] = useState(false);
+  const [hasFetchAttempted, setHasFetchAttempted] = useState(false);
   const POLL_INTERVAL_MS = 5000;
 
   // Ringkasan jadwal pengambilan (Asia/Jakarta)
@@ -279,6 +280,7 @@ function PaymentContent() {
         // Ignore 404 (Not Found) as it simply means transaction hasn't been created yet
         if (e?.response?.status === 404 || /404/.test(message)) {
           setStatusError(null);
+          setAutoRefresh(false);
         } else {
           setStatusError(message);
           if (!silent) {
@@ -291,6 +293,7 @@ function PaymentContent() {
         }
       } finally {
         if (!silent) setIsRefreshing(false);
+        setHasFetchAttempted(true);
       }
     },
     [
@@ -845,7 +848,7 @@ function PaymentContent() {
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                {merchantRef
+                {merchantRef && !hasFetchAttempted
                   ? "Memuat status transaksi..."
                   : "Belum ada transaksi. Pilih metode dan lanjutkan."}
               </div>

@@ -31,7 +31,7 @@ export async function GET(
       ...(ifModifiedSince ? { "If-Modified-Since": ifModifiedSince } : {}),
     };
 
-    const pathUrl = `${BACKEND_URL}/api/payments/tripay/transaction/${encodeURIComponent(
+    const pathUrl = `${BACKEND_URL}/api/v1/payments/tripay/transaction/${encodeURIComponent(
       params.id
     )}`;
 
@@ -59,7 +59,7 @@ export async function GET(
       !res.ok &&
       /Undefined\s*parameter\s*:\s*reference/i.test(String(json?.message))
     ) {
-      const qsUrl = `${BACKEND_URL}/api/payments/tripay/transaction?reference=${encodeURIComponent(
+      const qsUrl = `${BACKEND_URL}/api/v1/payments/tripay/transaction?reference=${encodeURIComponent(
         params.id
       )}`;
       res = await fetch(qsUrl, {

@@ -23,6 +23,7 @@ function getCandidatePaths(): string[] {
   }
   // Prioritaskan endpoint utama yang telah diperbaiki di backend
   return [
+    "/api/v1/orders", // FIX: Prioritize v1 endpoint
     "/api/orders",
     "/orders",
     "/api/user/orders",
@@ -143,8 +144,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    // Default endpoint for creating order is /api/orders
-    const endpoint = `${BACKEND_URL}/api/orders`;
+    // Default endpoint for creating order is /api/v1/orders
+    const endpoint = `${BACKEND_URL}/api/v1/orders`;
 
     const response = await axios.post(endpoint, body, {
       headers: {

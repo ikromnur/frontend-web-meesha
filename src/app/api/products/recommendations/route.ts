@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Primary: recommendations (SAW-backed)
-    const recUrl = `${BACKEND_URL}/api/products/recommendations${search}`;
+    const recUrl = `${BACKEND_URL}/api/v1/products/recommendations${search}`;
     const {
       res: recRes,
       data: recData,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback: popular (also SAW-backed per backend doc)
-    const popUrl = `${BACKEND_URL}/api/products/popular${search}`;
+    const popUrl = `${BACKEND_URL}/api/v1/products/popular${search}`;
     const {
       res: popRes,
       data: popData,

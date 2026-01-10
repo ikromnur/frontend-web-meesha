@@ -11,7 +11,7 @@ const BACKEND_URL =
 export async function GET(request: NextRequest) {
   try {
     const search = request.nextUrl.search || "";
-    const url = `${BACKEND_URL}/api/products/popular${search}`;
+    const url = `${BACKEND_URL}/api/v1/products/popular${search}`;
 
     const res = await fetch(url, {
       method: "GET",

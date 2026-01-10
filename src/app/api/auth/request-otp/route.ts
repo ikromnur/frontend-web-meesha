@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       const backendUrl =
         process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
       const { data } = await axios.post(
-        `${backendUrl}/api/auth/request-otp`,
+        `${backendUrl}/api/v1/auth/request-otp`,
         {
           email,
           purpose: normalizedPurpose, // inform backend tujuan OTP (Brevo akan kirim email)
@@ -43,15 +43,18 @@ export async function POST(req: NextRequest) {
     } catch (backendError: unknown) {
       console.error('Backend Error:', backendError);
       
-      // Always provide mock success for testing when backend fails
-      console.log('Backend failed, providing mock success for testing');
-      return NextResponse.json({
-        message: 'OTP sent successfully (mock)',
-        success: true,
-        email: email, // Include email for frontend
-        purpose: normalizedPurpose,
-        mock: true // Indicate this is a mock response
-      });
+      // Propagate the error to the client instead of mocking success
+      if (axios.isAxiosError(backendError)) {
+        return NextResponse.json(
+          backendError.response?.data || { success: false, message: "Backend error" },
+          { status: backendError.response?.status || 500 }
+        );
+      }
+      
+      return NextResponse.json(
+        { success: false, message: "Failed to connect to backend" },
+        { status: 500 }
+      );
     }
   } catch (error: unknown) {
     console.error('Request OTP Error:', error);

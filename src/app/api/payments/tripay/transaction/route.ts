@@ -124,10 +124,10 @@ export async function POST(req: NextRequest) {
 
     // Forward ke backend
     console.log(
-      `[Tripay Proxy] Forwarding to ${BACKEND_URL}/api/payments/tripay/closed`,
+      `[Tripay Proxy] Forwarding to ${BACKEND_URL}/api/v1/payments/tripay/closed`,
       { merchant_ref: merchantRef }
     );
-    const res = await fetch(`${BACKEND_URL}/api/payments/tripay/closed`, {
+    const res = await fetch(`${BACKEND_URL}/api/v1/payments/tripay/closed`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
 
         try {
           // Fetch user's latest order using the same token
-          const ordersRes = await fetch(`${BACKEND_URL}/api/orders`, {
+          const ordersRes = await fetch(`${BACKEND_URL}/api/v1/orders`, {
             headers: {
               ...(bearer ? { Authorization: bearer } : {}),
             },

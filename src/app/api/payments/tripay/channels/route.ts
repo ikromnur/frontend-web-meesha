@@ -9,7 +9,7 @@ const BACKEND_URL =
   process.env.BACKEND_URL ||
   "http://localhost:4000";
 
-// GET /api/payments/tripay/channels?code=QRIS
+// GET /api/v1/payments/tripay/channels?code=QRIS
 export async function GET(req: NextRequest) {
   try {
     const u = new URL(req.url);
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     }).catch(() => null);
 
     const response = await fetch(
-      `${BACKEND_URL}/api/payments/tripay/channels${qs}`,
+      `${BACKEND_URL}/api/v1/payments/tripay/channels${qs}`,
       {
         method: "GET",
         headers: {

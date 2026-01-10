@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     // Sesuaikan dengan mount di backend: app.use("/payments/tripay", tripayRoutes)
-    const response = await fetch(`${BACKEND_URL}/api/payments/tripay/closed`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/payments/tripay/closed`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

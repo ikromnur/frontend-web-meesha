@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import LoginPage from "@/components/pages/auth/login";
 
 export const metadata = {
@@ -6,5 +6,9 @@ export const metadata = {
 };
 
 export default function Page() {
-  return <LoginPage />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginPage />
+    </Suspense>
+  );
 }

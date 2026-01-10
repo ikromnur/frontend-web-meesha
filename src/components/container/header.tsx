@@ -157,7 +157,7 @@ const DefaultHeader = () => {
                         const backendUrl =
                           process.env.NEXT_PUBLIC_BACKEND_URL || "";
                         const img = user?.image;
-                        if (!img) return "/default-profile.png";
+                        if (!img) return "/avatar.png";
                         if (/^https?:\/\//.test(img)) return img;
                         return `${backendUrl}${
                           img.startsWith("/") ? "" : "/"

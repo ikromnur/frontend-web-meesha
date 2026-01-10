@@ -63,11 +63,11 @@ export async function POST(req: Request) {
     console.log("New user registration:", { username, name, email, phone });
     const backendUrl =
       process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
-    console.log("Backend URL:", `${backendUrl}/api/auth/register`);
+    console.log("Backend URL:", `${backendUrl}/api/v1/auth/register`);
 
     // Send registration data to backend
     const backendResponse = await axios.post(
-      `${backendUrl}/api/auth/register`,
+      `${backendUrl}/api/v1/auth/register`,
       {
         username,
         name,

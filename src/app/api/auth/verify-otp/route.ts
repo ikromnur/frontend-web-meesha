@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     try {
       const { data } = await axios.post(
-        `${backendUrl}/api/auth/verify-otp`,
+        `${backendUrl}/api/v1/auth/verify-otp`,
         { email, otp, purpose: normalizedPurpose },
         { headers: { "Content-Type": "application/json" } },
       );

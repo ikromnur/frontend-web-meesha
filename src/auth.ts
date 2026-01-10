@@ -22,7 +22,6 @@ const authHandler = NextAuth({
           process.env.NEXT_PUBLIC_BACKEND_URL;
 
         try {
-          // FIX: Added /v1/ to the path to match the new backend route
           const res = await fetch(`${backendUrl}/api/v1/auth/login`, {
             method: "POST",
             body: JSON.stringify(credentials),
@@ -32,21 +31,18 @@ const authHandler = NextAuth({
           const data = await res.json();
 
           // Jika backend mengembalikan error atau status tidak OK
-          if (!res.ok || data.error) {
+          if (!res.ok || data.error || data.success === false) {
             throw new Error(data.message || "Email atau password tidak valid.");
           }
 
           // Jika login berhasil, kembalikan data user
-          // Next-Auth expects the user object to be returned directly
           if (data) {
             return data;
           }
 
           return null; // Gagal login
         } catch (error: any) {
-          // Tangkap error jaringan atau error lain dari fetch/backend
           console.error("Authorize error:", error);
-          // Propagate the error message to the client
           throw new Error(
             error.message || "Terjadi masalah saat menghubungi server."
           );
@@ -67,20 +63,43 @@ const authHandler = NextAuth({
         if (session.user.phone !== undefined) token.phone = session.user.phone;
       }
 
-      // Logika awal (tetap dipertahankan)
+      // Logika awal
       if (user) {
-        token.accessToken = user.token;
-        token.role = user.role;
-        token.username = user.username;
-        token.phone = user.phone;
+        // Handle various backend response structures
+        // 1. { data: { ...user, token: "..." } } -> standard
+        // 2. { data: { user: { ... }, token: "..." } } -> nested user
+        // 3. { ...user, token: "..." } -> flat
+
+        const responseData = user as any;
+
+        // Extract token
+        const accessToken =
+          responseData.token ||
+          responseData.data?.token ||
+          responseData.accessToken ||
+          responseData.data?.accessToken;
+
+        // Extract user object
+        // Prioritize nested user object if it exists
+        const backendUser =
+          responseData.data?.user || // Nested user in data (e.g. data: { user: {...} })
+          responseData.user || // Nested user in root (e.g. { user: {...} })
+          responseData.data || // User fields in data (e.g. data: { name: ... })
+          responseData; // User fields in root (e.g. { name: ... })
+
+        token.accessToken = accessToken;
+        token.role = backendUser.role;
+        token.username = backendUser.username;
+        token.phone = backendUser.phone;
+
+        // FIX: Ensure email is captured from backend response
+        token.email = backendUser.email;
+
         // Persist image URL in token so session always has it
-        // @ts-ignore - custom field on JWT
-        token.image = (user as any).image;
+        token.image = backendUser.photo_profile || backendUser.image;
+
         // Pastikan token membawa nama lengkap agar sesi selalu punya nilai name
-        // (NextAuth default tidak meng-copy name ke token bila tidak diset manual)
-        // Gunakan fallback ke username jika nama tidak tersedia
-        // @ts-ignore - token.name tidak ada di tipe kustom kita, tapi di JWT default ada
-        token.name = (user as any).name ?? user.username ?? null;
+        token.name = backendUser.name || backendUser.username || null;
       }
       return token;
     },
@@ -98,6 +117,11 @@ const authHandler = NextAuth({
         // @ts-ignore - token.name ada di JWT default
         session.user.name =
           (token as any).name ?? session.user.name ?? token.username ?? null;
+
+        // FIX: Ensure email from token is passed to session
+        if (token.email) {
+          session.user.email = token.email;
+        }
       }
 
       session.accessToken = token.accessToken;

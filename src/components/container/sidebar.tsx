@@ -134,7 +134,7 @@ export function SidebarAdmin({
               <Button variant="ghost" size={"icon"}>
                 <Avatar>
                   <AvatarImage
-                    src={session?.user?.image || "/default-profile.png"}
+                    src={session?.user?.image || "/avatar.png"}
                     alt={session?.user?.name || "User"}
                   />
                   <AvatarFallback>

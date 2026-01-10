@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const url = `${backendUrl}/api/auth/login`;
+    const url = `${backendUrl}/api/v1/auth/login`;
 
     const res = await axios.post(
       url,
