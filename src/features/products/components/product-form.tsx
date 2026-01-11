@@ -328,17 +328,21 @@ const ProductForm = ({
                       value={field.value?.id ?? ""}
                     >
                       <SelectTrigger>
-                        <SelectValue
+                      <SelectValue
                           placeholder="Pilih kategori"
                           defaultValue={field.value?.name}
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories?.map((category: SelectItemType) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
+                        {categories
+                          ?.filter(
+                            (c: SelectItemType) => c.id && c.id.trim() !== ""
+                          )
+                          .map((category: SelectItemType) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </FormControl>
@@ -537,11 +541,13 @@ const ProductForm = ({
                             <SelectValue placeholder="Pilih acara" />
                           </SelectTrigger>
                           <SelectContent>
-                            {objectiveOptions.map((o) => (
-                              <SelectItem key={o.id} value={o.id}>
-                                {o.name}
-                              </SelectItem>
-                            ))}
+                            {objectiveOptions
+                              .filter((o) => o.id && o.id.trim() !== "")
+                              .map((o) => (
+                                <SelectItem key={o.id} value={o.id}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -561,7 +567,7 @@ const ProductForm = ({
                                 prev.find((p) => p.id === item.id)
                                   ? prev
                                   : [...prev, item]
-                              );
+                                );
                               field.onChange(item);
                               setInputObjective("");
                             }
@@ -630,11 +636,13 @@ const ProductForm = ({
                             <SelectValue placeholder="Pilih warna" />
                           </SelectTrigger>
                           <SelectContent>
-                            {colorOptions.map((o) => (
-                              <SelectItem key={o.id} value={o.id}>
-                                {o.name}
-                              </SelectItem>
-                            ))}
+                            {colorOptions
+                              .filter((o) => o.id && o.id.trim() !== "")
+                              .map((o) => (
+                                <SelectItem key={o.id} value={o.id}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
