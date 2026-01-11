@@ -54,13 +54,10 @@ Download source code aplikasi ke VPS:
 
 ```bash
 # Masuk ke folder home atau folder project
-cd /var/www
+cd /var/www/frontend-meesha.store
 
-# Clone repository (pastikan repo public atau sudah setup SSH key)
-git clone https://github.com/ikromnur/frontend-meesha.store.git
-
-# Masuk ke folder project
-cd frontend-meesha.store
+# Clone repository (jika belum ada)
+# git clone https://github.com/ikromnur/frontend-meesha.store.git .
 ```
 
 ## Langkah 4: Konfigurasi Environment Variable
@@ -101,8 +98,8 @@ Jalankan perintah berikut untuk membangun image dan menjalankan container:
 docker compose up -d --build
 ```
 
--   `-d`: Menjalankan di background (detached mode).
--   `--build`: Memaksa build ulang image untuk memastikan kode terbaru dipakai.
+- `-d`: Menjalankan di background (detached mode).
+- `--build`: Memaksa build ulang image untuk memastikan kode terbaru dipakai.
 
 Cek status container:
 
@@ -117,16 +114,19 @@ Jika statusnya `Up`, maka aplikasi sudah berjalan di port `3000`.
 Agar aplikasi bisa diakses via domain (port 80/443) tanpa mengetik `:3000`, gunakan Nginx.
 
 1.  Install Nginx:
+
     ```bash
     apt-get install -y nginx
     ```
 
 2.  Buat konfigurasi server block:
+
     ```bash
     nano /etc/nginx/sites-available/meesha.store
     ```
 
 3.  Isi dengan konfigurasi berikut:
+
     ```nginx
     server {
         listen 80;
